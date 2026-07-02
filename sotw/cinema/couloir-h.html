@@ -3,159 +3,334 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>corridor</title>
+<title>hallway</title>
 <link rel="stylesheet" href="../css/main.css">
 <style>
-  #hint {
+  #ui {
     position: fixed;
-    bottom: 8%;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  .door-slot {
+    position: absolute;
+    transform: translateX(-50%);
+    pointer-events: all;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .door-slot img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: bottom center;
+    transition: filter 0.25s ease;
+  }
+
+  .door-slot.unlocked:hover img {
+    filter: brightness(1.12);
+  }
+
+  .door-slot.locked {
+    cursor: not-allowed;
+  }
+
+  .door-slot.locked img {
+    filter: brightness(0.45) saturate(0.4);
+  }
+
+  .door-slot.locked:hover img {
+    filter: brightness(0.35) saturate(0.3);
+  }
+
+  .door-num {
+    position: absolute;
+    top: -22px;
     left: 50%;
     transform: translateX(-50%);
-    color: #3a2e20;
-    font-size: 8px;
-    letter-spacing: 0.3em;
     font-family: 'Courier New', monospace;
-    text-transform: uppercase;
-    opacity: 0;
-    transition: opacity 2s ease;
+    font-size: 10px;
+    letter-spacing: 0.25em;
     pointer-events: none;
-    z-index: 10;
+    white-space: nowrap;
+    transition: color 0.3s;
   }
-  #hint.show { opacity: 1; }
+
+  .door-slot.unlocked .door-num { color: rgba(200,155,60,0.75); }
+  .door-slot.locked .door-num   { color: rgba(80,55,20,0.35); }
+  .door-slot.open .door-num     { color: rgba(200,155,60,0.5); }
+
+  .enter-hint {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Courier New', monospace;
+    font-size: 8px;
+    letter-spacing: 0.2em;
+    color: rgba(180,140,55,0.55);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+  .door-slot.open .enter-hint { opacity: 1; }
+
+  #toast {
+    position: fixed;
+    bottom: 7%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: rgba(160,120,45,0.6);
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+    z-index: 20;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; }
 </style>
 </head>
 <body>
   <div class="fade-cover" id="fi"></div>
   <canvas id="c"></canvas>
-  <div id="hint">walk forward</div>
+  <div id="ui"></div>
+  <div id="toast"></div>
+
 <script>
 (function(){
-  const cv = document.getElementById('c');
-  const cx = cv.getContext('2d');
-  const hint = document.getElementById('hint');
-  const fi = document.getElementById('fi');
+  const cv  = document.getElementById('c');
+  const cx  = cv.getContext('2d');
+  const ui  = document.getElementById('ui');
+  const fi  = document.getElementById('fi');
+  const toast = document.getElementById('toast');
   let W, H, t = 0;
+  let toastTimer = null;
 
-  function resize(){
-    W = window.innerWidth;
-    H = window.innerHeight;
-    cv.width = W; cv.height = H;
+  // =============================================
+  //  STATE
+  // =============================================
+  // 'closed' | 'opening' | 'open' | 'entering'
+  const doorState   = ['closed','closed','closed','closed'];
+  const doorUnlocked= [true, false, false, false];
+
+  // =============================================
+  //  IMAGES
+  // =============================================
+  const IMG = {};
+  const imgSrcs = {
+    closed:     'door_closed.png',
+    open:       'door_open.png',
+    fullyOpen:  'door_fully_open.png',
+    behind:     'door_behind.png',
+  };
+  let imagesLoaded = 0;
+  Object.entries(imgSrcs).forEach(([k,src])=>{
+    const img = new Image();
+    img.src = src;
+    img.onload = ()=>{ imagesLoaded++; updateDoorEls(); };
+    IMG[k] = img;
+  });
+
+  // =============================================
+  //  TOAST
+  // =============================================
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    if(toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>toast.classList.remove('show'), 2800);
   }
-  resize();
 
-  setTimeout(()=> fi.classList.add('done'), 100);
-  setTimeout(()=> hint.classList.add('show'), 2000);
+  // =============================================
+  //  DOOR LAYOUT
+  // =============================================
+  function doorCfg(i){
+    const spacing = W / 5;
+    const x = spacing * (i + 1);
+    const dH = H * 0.58;
+    const dW = dH * 0.52;
+    const dY = H * 0.86 - dH; // sit on floor
+    return { x, y: dY, w: dW, h: dH };
+  }
 
-  cv.addEventListener('mousemove', e => {
-    const vy = H/2*0.52, rW = W*0.10, rH = H*0.18;
-    const rX = W/2-rW/2, rY = vy-rH*0.55;
-    const over = e.offsetX>rX && e.offsetX<rX+rW && e.offsetY>rY && e.offsetY<rY+rH;
-    cv.style.cursor = over ? 'pointer' : 'default';
-  });
+  // =============================================
+  //  DOM DOOR ELEMENTS
+  // =============================================
+  let doorEls = [];
 
-  cv.addEventListener('click', e => {
-    const vy = H/2*0.52, rW = W*0.10, rH = H*0.18;
-    const rX = W/2-rW/2, rY = vy-rH*0.55;
-    if(e.offsetX>rX && e.offsetX<rX+rW && e.offsetY>rY && e.offsetY<rY+rH){
-      cv.style.transition = 'opacity 0.7s';
-      cv.style.opacity = '0';
-      hint.style.opacity = '0';
-      setTimeout(()=>{ window.location.href = 'couloir-h.html'; }, 700);
+  function updateDoorEls(){
+    ui.querySelectorAll('.door-slot').forEach(e=>e.remove());
+    doorEls = [];
+
+    for(let i=0;i<4;i++){
+      const cfg  = doorCfg(i);
+      const s    = doorState[i];
+      const unlocked = doorUnlocked[i];
+
+      const slot = document.createElement('div');
+      slot.className = 'door-slot ' + (unlocked ? (s==='open'||s==='entering'?'open':'unlocked') : 'locked');
+      slot.style.left   = cfg.x + 'px';
+      slot.style.top    = cfg.y + 'px';
+      slot.style.width  = cfg.w + 'px';
+      slot.style.height = cfg.h + 'px';
+
+      // number
+      const num = document.createElement('div');
+      num.className = 'door-num';
+      num.textContent = i + 1;
+      slot.appendChild(num);
+
+      // image
+      const img = document.createElement('img');
+      img.draggable = false;
+      if(!unlocked || s==='closed'){
+        img.src = IMG.closed.src;
+      } else if(s==='opening'){
+        img.src = IMG.open.src;
+      } else if(s==='open'){
+        img.src = IMG.fullyOpen.src;
+      }
+      slot.appendChild(img);
+
+      // enter hint
+      const hint = document.createElement('div');
+      hint.className = 'enter-hint';
+      hint.textContent = 'enter';
+      slot.appendChild(hint);
+
+      // click
+      slot.addEventListener('click', ()=> handleClick(i));
+
+      ui.appendChild(slot);
+      doorEls.push(slot);
     }
-  });
+  }
 
+  function handleClick(i){
+    if(!doorUnlocked[i]){
+      showToast(`open door ${i} first`);
+      return;
+    }
+
+    if(doorState[i]==='closed'){
+      // start opening
+      doorState[i] = 'opening';
+      updateDoorEls();
+      setTimeout(()=>{
+        doorState[i] = 'open';
+        // unlock next
+        if(i < 3){
+          doorUnlocked[i+1] = true;
+          showToast(`door ${i+2} is now open`);
+        }
+        updateDoorEls();
+      }, 600);
+
+    } else if(doorState[i]==='open'){
+      // enter
+      doorState[i] = 'entering';
+      fi.style.transition = 'opacity 0.7s';
+      fi.style.opacity = '1';
+      setTimeout(()=>{ window.location.href = `salle${i+1}.html`; }, 700);
+    }
+  }
+
+  // =============================================
+  //  CANVAS BG
+  // =============================================
   function draw(){
     cx.clearRect(0,0,W,H);
     const cxW = W/2, cyH = H/2;
-    const vx = cxW, vy = cyH*0.52;
+    cx.fillStyle = '#0e0a08'; cx.fillRect(0,0,W,H);
 
     // CEILING
-    cx.beginPath();
-    cx.moveTo(0,0); cx.lineTo(W,0); cx.lineTo(vx,vy); cx.closePath();
-    const ceilG = cx.createLinearGradient(0,0,0,vy);
-    ceilG.addColorStop(0,'#181410'); ceilG.addColorStop(1,'#2a2218');
-    cx.fillStyle = ceilG; cx.fill();
+    const ceilG = cx.createLinearGradient(0,0,0,H*0.14);
+    ceilG.addColorStop(0,'#141008'); ceilG.addColorStop(1,'#221e14');
+    cx.fillStyle = ceilG; cx.fillRect(0,0,W,H*0.14);
 
-    // LEFT WALL
-    cx.beginPath();
-    cx.moveTo(0,0); cx.lineTo(0,H); cx.lineTo(W*0.2,H); cx.lineTo(vx,vy); cx.closePath();
-    const lwG = cx.createLinearGradient(0,0,W*0.2,0);
-    lwG.addColorStop(0,'#141008'); lwG.addColorStop(1,'#2e261a');
-    cx.fillStyle = lwG; cx.fill();
-
-    // RIGHT WALL
-    cx.beginPath();
-    cx.moveTo(W,0); cx.lineTo(W,H); cx.lineTo(W*0.8,H); cx.lineTo(vx,vy); cx.closePath();
-    const rwG = cx.createLinearGradient(W,0,W*0.8,0);
-    rwG.addColorStop(0,'#100e08'); rwG.addColorStop(1,'#281e14');
-    cx.fillStyle = rwG; cx.fill();
+    // BACK WALL
+    cx.fillStyle = '#201a12'; cx.fillRect(0,H*0.14,W,H*0.72);
+    // subtle texture
+    for(let y=H*0.16;y<H*0.86;y+=22){
+      cx.beginPath(); cx.moveTo(0,y); cx.lineTo(W,y);
+      cx.strokeStyle = 'rgba(38,30,14,0.09)'; cx.lineWidth = 0.3; cx.stroke();
+    }
 
     // FLOOR — red carpet
-    cx.beginPath();
-    cx.moveTo(0,H); cx.lineTo(W,H); cx.lineTo(vx,vy); cx.closePath();
-    const flG = cx.createLinearGradient(0,vy,0,H);
-    flG.addColorStop(0,'#2a0a0a'); flG.addColorStop(0.4,'#380e0e'); flG.addColorStop(1,'#441212');
-    cx.fillStyle = flG; cx.fill();
-
-    // perspective lines floor
-    for(let i=1;i<9;i++){
-      cx.beginPath(); cx.moveTo(vx,vy); cx.lineTo(W*i/9,H);
-      cx.strokeStyle = 'rgba(50,12,12,0.35)'; cx.lineWidth = 0.4; cx.stroke();
+    const flG = cx.createLinearGradient(0,H*0.86,0,H);
+    flG.addColorStop(0,'#2a0a0a'); flG.addColorStop(0.5,'#380e0e'); flG.addColorStop(1,'#441212');
+    cx.fillStyle = flG; cx.fillRect(0,H*0.86,W,H*0.14);
+    // floor lines
+    for(let x=0;x<=W;x+=W/8){
+      cx.beginPath(); cx.moveTo(x,H*0.86); cx.lineTo(x,H);
+      cx.strokeStyle = 'rgba(42,10,10,0.2)'; cx.lineWidth = 0.3; cx.stroke();
     }
-    for(let j=1;j<7;j++){
-      const p = Math.pow(j/7,1.5), y = vy+(H-vy)*p, hw = W*0.8*p*0.5;
-      cx.beginPath(); cx.moveTo(cxW-hw,y); cx.lineTo(cxW+hw,y);
-      cx.strokeStyle = `rgba(42,10,10,${0.25+p*0.15})`; cx.lineWidth = 0.3; cx.stroke();
+    // horizontal floor lines
+    for(let j=1;j<4;j++){
+      const y = H*0.86 + j/4*(H*0.14);
+      cx.beginPath(); cx.moveTo(0,y); cx.lineTo(W,y);
+      cx.strokeStyle = `rgba(35,8,8,${0.15+j*0.08})`; cx.lineWidth = 0.3; cx.stroke();
     }
 
-    // AMBIENT LIGHT — diffuse, no visible source
-    const ambG = cx.createRadialGradient(vx,vy,0,vx,vy,H*0.9);
-    ambG.addColorStop(0,`rgba(200,165,100,${0.13+Math.sin(t*0.3)*0.01})`);
-    ambG.addColorStop(0.25,'rgba(150,120,65,0.07)');
-    ambG.addColorStop(0.6,'rgba(90,70,35,0.03)');
+    // AMBIENT LIGHT — diffuse
+    const ambG = cx.createRadialGradient(cxW,cyH*0.6,0,cxW,cyH,H);
+    ambG.addColorStop(0,`rgba(195,158,88,${0.09+Math.sin(t*0.3)*0.008})`);
+    ambG.addColorStop(0.3,'rgba(140,108,52,0.04)');
     ambG.addColorStop(1,'rgba(0,0,0,0)');
     cx.fillStyle = ambG; cx.fillRect(0,0,W,H);
 
-    // ceiling light
-    const ceilL = cx.createLinearGradient(0,0,0,vy);
-    ceilL.addColorStop(0,'rgba(0,0,0,0)');
-    ceilL.addColorStop(1,'rgba(180,150,85,0.08)');
-    cx.fillStyle = ceilL;
-    cx.beginPath(); cx.moveTo(0,0); cx.lineTo(W,0); cx.lineTo(vx,vy); cx.closePath(); cx.fill();
+    // ceiling light cast
+    const ceilL = cx.createLinearGradient(0,H*0.14,0,H*0.55);
+    ceilL.addColorStop(0,'rgba(165,138,72,0.07)'); ceilL.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle = ceilL; cx.fillRect(0,H*0.14,W,H*0.41);
 
     // floor light
-    const floorL = cx.createLinearGradient(0,vy,0,H);
-    floorL.addColorStop(0,'rgba(160,80,40,0.08)');
-    floorL.addColorStop(0.5,'rgba(100,45,20,0.04)');
-    floorL.addColorStop(1,'rgba(0,0,0,0)');
-    cx.fillStyle = floorL;
-    cx.beginPath(); cx.moveTo(0,H); cx.lineTo(W,H); cx.lineTo(vx,vy); cx.closePath(); cx.fill();
+    const floorL = cx.createLinearGradient(0,H*0.86,0,H);
+    floorL.addColorStop(0,'rgba(140,65,25,0.06)'); floorL.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle = floorL; cx.fillRect(0,H*0.86,W,H*0.14);
 
-    // wall lights
-    const mwL = cx.createLinearGradient(W*0.2,0,vx,0);
-    mwL.addColorStop(0,'rgba(170,135,70,0.06)'); mwL.addColorStop(1,'rgba(0,0,0,0)');
-    cx.fillStyle = mwL;
-    cx.beginPath(); cx.moveTo(0,0); cx.lineTo(0,H); cx.lineTo(W*0.2,H); cx.lineTo(vx,vy); cx.closePath(); cx.fill();
-
-    const mwR = cx.createLinearGradient(W*0.8,0,vx,0);
-    mwR.addColorStop(0,'rgba(160,125,65,0.06)'); mwR.addColorStop(1,'rgba(0,0,0,0)');
-    cx.fillStyle = mwR;
-    cx.beginPath(); cx.moveTo(W,0); cx.lineTo(W,H); cx.lineTo(W*0.8,H); cx.lineTo(vx,vy); cx.closePath(); cx.fill();
-
-    // BLACK RECTANGLE at end — click to continue
-    const rW = W*0.10, rH = H*0.18;
-    const rX = vx-rW/2, rY = vy-rH*0.55;
-    cx.fillStyle = '#000000'; cx.fillRect(rX,rY,rW,rH);
-    cx.strokeStyle = 'rgba(60,42,20,0.5)'; cx.lineWidth = 0.8;
-    cx.strokeRect(rX,rY,rW,rH);
+    // door shadows on floor
+    for(let i=0;i<4;i++){
+      const cfg = doorCfg(i);
+      const shG = cx.createEllipse ? null : null;
+      cx.beginPath();
+      cx.ellipse(cfg.x, H*0.86+4, cfg.w*0.35, 5, 0, 0, Math.PI*2);
+      cx.fillStyle = 'rgba(0,0,0,0.2)';
+      cx.fill();
+    }
 
     // VIGNETTE
-    const vig = cx.createRadialGradient(cxW,cyH,H*0.05,cxW,cyH,H*0.85);
-    vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(0,0,0,0.92)');
+    const vig = cx.createRadialGradient(cxW,cyH,H*0.1,cxW,cyH,H*0.88);
+    vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(0,0,0,0.9)');
     cx.fillStyle = vig; cx.fillRect(0,0,W,H);
   }
 
-  function loop(){ t+=0.016; resize(); draw(); requestAnimationFrame(loop); }
+  // =============================================
+  //  RESIZE + LOOP
+  // =============================================
+  function resize(){
+    const nW = window.innerWidth, nH = window.innerHeight;
+    if(nW===W && nH===H) return;
+    W=nW; H=nH;
+    cv.width=W; cv.height=H;
+    updateDoorEls();
+  }
+
+  setTimeout(()=> fi.classList.add('done'), 100);
+
+  function loop(){
+    t+=0.016; resize(); draw();
+    requestAnimationFrame(loop);
+  }
   loop();
 })();
 </script>
