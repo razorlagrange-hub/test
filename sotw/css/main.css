@@ -1,6 +1,7 @@
 /* =============================================
    somewhereoutsidethewindow — main styles
    ============================================= */
+html { background: #0e0c09; }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
