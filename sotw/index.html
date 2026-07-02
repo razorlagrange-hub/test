@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>somewhereoutsidethewindow</title>
+<link rel="stylesheet" href="css/main.css">
+<style>
+  body { overflow: hidden; }
+  #bgPhoto {
+    position: fixed; top:0; left:0; width:100%; height:100%;
+    object-fit: cover; object-position: center; z-index: -1;
+    filter: brightness(0.55) saturate(0.9);
+  }
+  #bgOverlay {
+    position: fixed; top:0; left:0; width:100%; height:100%;
+    background: rgba(0,0,0,0.45); z-index: 0; pointer-events: none;
+  }
+  #loader {
+    position: fixed; top:0; left:0; width:100%; height:100%;
+    background: #000; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; z-index:999;
+  }
+  #loaderLogo { color:#555; font-size:11px; letter-spacing:0.4em; margin-bottom:24px; text-transform:uppercase; opacity:0.6; }
+  #loaderBarOuter { width:220px; height:2px; background:#1a1a1a; position:relative; overflow:hidden; }
+  #loaderBarInner { height:100%; width:0%; background:#fff; transition:width 0.1s linear; }
+  #loaderPercent { color:#555; font-size:10px; letter-spacing:0.2em; margin-top:14px; }
+  #loaderFlash { position:fixed; top:0; left:0; width:100%; height:100%; background:#fff; opacity:0; pointer-events:none; z-index:1000; }
+  #surface {
+    position: fixed; top:0; left:0; width:100%; height:100%;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    opacity:0; transition:opacity 1.2s ease; z-index:2;
+  }
+  #surface.visible { opacity:1; }
+  #titleWrap { cursor:pointer; padding:20px; }
+  #titleWrap img { width:min(70vw,600px); display:block; mix-blend-mode:screen; transition:filter 0.4s ease; }
+  #titleWrap:hover img { filter:drop-shadow(0 0 18px rgba(255,255,255,0.35)); }
+  #portfolioBtn {
+    margin-top:56px; background:transparent; border:1px solid #2a2a2a;
+    color:#555; font-family:'Courier New',monospace; font-size:11px;
+    letter-spacing:0.35em; text-transform:uppercase; padding:12px 32px;
+    cursor:pointer; transition:border-color 0.3s, color 0.3s, letter-spacing 0.3s;
+  }
+  #portfolioBtn:hover { border-color:#fff; color:#fff; letter-spacing:0.45em; }
+</style>
+</head>
+<body>
+  <img id="bgPhoto" src="images/bg.jpg" alt="">
+  <div id="bgOverlay"></div>
+  <div id="loaderFlash"></div>
+  <div id="loader">
+    <div id="loaderLogo">somewhereoutsidethewindow</div>
+    <div id="loaderBarOuter"><div id="loaderBarInner"></div></div>
+    <div id="loaderPercent">0%</div>
+  </div>
+  <div id="surface">
+    <div id="titleWrap" onclick="goToHub()">
+      <img src="images/title.png" alt="somewhereoutsidethewindow">
+    </div>
+    <button id="portfolioBtn" onclick="goToPortfolio()">Portfolio</button>
+  </div>
+<script>
+  const loaderBar     = document.getElementById('loaderBarInner');
+  const loaderPercent = document.getElementById('loaderPercent');
+  const loader        = document.getElementById('loader');
+  const loaderFlash   = document.getElementById('loaderFlash');
+  const surface       = document.getElementById('surface');
+  const startTime     = Date.now();
+  const totalDuration = 2600;
+
+  function updateLoader(){
+    const elapsed = Date.now() - startTime;
+    let t = Math.min(elapsed / totalDuration, 1);
+    let eased;
+    if(t < 0.6)       eased = (t/0.6)*78;
+    else if(t < 0.85) eased = 78 + ((t-0.6)/0.25)*12;
+    else               eased = 90 + ((t-0.85)/0.15)*10;
+    const progress = Math.min(Math.round(eased), 100);
+    loaderBar.style.width   = progress + '%';
+    loaderPercent.textContent = progress + '%';
+    if(t < 1) requestAnimationFrame(updateLoader);
+    else finishLoading();
+  }
+
+  function finishLoading(){
+    loaderFlash.style.transition = 'opacity 0.06s';
+    loaderFlash.style.opacity = '1';
+    setTimeout(()=>{
+      loaderFlash.style.opacity = '0';
+      loader.style.transition = 'opacity 0.3s';
+      loader.style.opacity = '0';
+      setTimeout(()=>{ loader.style.display='none'; surface.classList.add('visible'); }, 300);
+    }, 60);
+  }
+
+  requestAnimationFrame(updateLoader);
+
+  function goToHub(){
+    try {
+      const ctx = new (window.AudioContext||window.webkitAudioContext)();
+      const buf = ctx.createBuffer(1,1,22050);
+      const src = ctx.createBufferSource();
+      src.buffer=buf; src.connect(ctx.destination); src.start(0);
+    } catch(e){}
+    window.location.href = 'hub.html?audio=1';
+  }
+
+  function goToPortfolio(){
+    window.location.href = 'portfolio.html';
+  }
+</script>
+</body>
+</html>

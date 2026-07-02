@@ -1,0 +1,97 @@
+/* =============================================
+   somewhereoutsidethewindow — main styles
+   ============================================= */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg:       #0e0c09;
+  --text-dim: #555555;
+  --text:     #ffffff;
+  --accent:   #888888;
+}
+
+body {
+  background: var(--bg);
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  font-family: 'Courier New', monospace;
+}
+
+canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+}
+
+/* fade transition */
+.fade-cover {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: #000;
+  z-index: 999;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.8s ease;
+}
+.fade-cover.done { opacity: 0; }
+
+/* dialog box — intercom */
+#dialogBox {
+  position: fixed;
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 88%;
+  max-width: 520px;
+  background: #0a0908;
+  border: 2px solid #4a4a4a;
+  border-radius: 2px;
+  padding: 16px 18px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 20;
+  box-shadow: 0 0 0 1px #1a1a1a, 0 4px 20px rgba(0,0,0,0.6);
+  transition: opacity 0.4s;
+}
+#dialogText {
+  color: #e8e0d0;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  white-space: pre-wrap;
+  min-height: 21px;
+}
+
+/* link labels */
+.lk {
+  position: fixed;
+  pointer-events: all;
+  cursor: pointer;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.18em;
+  user-select: none;
+  color: #fff;
+}
+
+/* navigation hint */
+.nav-hint {
+  position: fixed;
+  bottom: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #444;
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  cursor: pointer;
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 1s ease;
+  text-decoration: none;
+}
+.nav-hint.visible { opacity: 1; }
+.nav-hint:hover { color: #888; }
