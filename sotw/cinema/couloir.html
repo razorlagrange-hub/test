@@ -6,8 +6,22 @@
 <title>corridor</title>
 <link rel="stylesheet" href="../css/main.css">
 <style>
-  #hint { position:fixed; bottom:8%; left:50%; transform:translateX(-50%); color:#333; font-size:8px; letter-spacing:.3em; text-transform:uppercase; opacity:0; transition:opacity 1.5s ease; pointer-events:none; z-index:10; }
-  #hint.show { opacity:1; }
+  #hint {
+    position: fixed;
+    bottom: 8%;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #3a2e20;
+    font-size: 8px;
+    letter-spacing: 0.3em;
+    font-family: 'Courier New', monospace;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 2s ease;
+    pointer-events: none;
+    z-index: 10;
+  }
+  #hint.show { opacity: 1; }
 </style>
 </head>
 <body>
@@ -16,118 +30,132 @@
   <div id="hint">walk forward</div>
 <script>
 (function(){
-  const cv=document.getElementById('c'),cx=cv.getContext('2d');
-  const hint=document.getElementById('hint');
-  const fi=document.getElementById('fi');
-  let W,H,t=0,audioCtx=null,neonSrc=null;
+  const cv = document.getElementById('c');
+  const cx = cv.getContext('2d');
+  const hint = document.getElementById('hint');
+  const fi = document.getElementById('fi');
+  let W, H, t = 0;
 
-  function resize(){W=window.innerWidth;H=window.innerHeight;cv.width=W;cv.height=H;}
-  resize();
-  setTimeout(()=>fi.classList.add('done'),100);
-  setTimeout(()=>hint.classList.add('show'),1800);
-
-  function initNeon(){
-    if(audioCtx)return;
-    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-    const bufSize=audioCtx.sampleRate*2;
-    const buf=audioCtx.createBuffer(1,bufSize,audioCtx.sampleRate);
-    const d=buf.getChannelData(0);
-    for(let i=0;i<bufSize;i++) d[i]=Math.random()*2-1;
-    neonSrc=audioCtx.createBufferSource();
-    neonSrc.buffer=buf;neonSrc.loop=true;
-    const f1=audioCtx.createBiquadFilter();f1.type='bandpass';f1.frequency.value=120;f1.Q.value=12;
-    const f2=audioCtx.createBiquadFilter();f2.type='bandpass';f2.frequency.value=60;f2.Q.value=8;
-    const gain=audioCtx.createGain();gain.gain.value=0.04;
-    neonSrc.connect(f1);f1.connect(f2);f2.connect(gain);gain.connect(audioCtx.destination);
-    neonSrc.start();
+  function resize(){
+    W = window.innerWidth;
+    H = window.innerHeight;
+    cv.width = W; cv.height = H;
   }
+  resize();
 
-  cv.addEventListener('click',e=>{
-    initNeon();
-    const dx=e.offsetX-W/2, dy=e.offsetY-H/2;
-    // clickable zone: center, upper half
-    if(Math.abs(dx)<W*.18 && dy<0 && dy>-H*.38){
-      cv.style.transition='opacity .6s';cv.style.opacity='0';
-      hint.style.opacity='0';
-      setTimeout(()=>{ window.location.href='couloir-h.html'; },600);
-    }
+  setTimeout(()=> fi.classList.add('done'), 100);
+  setTimeout(()=> hint.classList.add('show'), 2000);
+
+  cv.addEventListener('mousemove', e => {
+    const vy = H/2*0.52, rW = W*0.10, rH = H*0.18;
+    const rX = W/2-rW/2, rY = vy-rH*0.55;
+    const over = e.offsetX>rX && e.offsetX<rX+rW && e.offsetY>rY && e.offsetY<rY+rH;
+    cv.style.cursor = over ? 'pointer' : 'default';
   });
 
-  cv.addEventListener('mousemove',e=>{
-    const dx=e.offsetX-W/2, dy=e.offsetY-H/2;
-    cv.style.cursor=(Math.abs(dx)<W*.18 && dy<0 && dy>-H*.38)?'pointer':'default';
+  cv.addEventListener('click', e => {
+    const vy = H/2*0.52, rW = W*0.10, rH = H*0.18;
+    const rX = W/2-rW/2, rY = vy-rH*0.55;
+    if(e.offsetX>rX && e.offsetX<rX+rW && e.offsetY>rY && e.offsetY<rY+rH){
+      cv.style.transition = 'opacity 0.7s';
+      cv.style.opacity = '0';
+      hint.style.opacity = '0';
+      setTimeout(()=>{ window.location.href = 'couloir-h.html'; }, 700);
+    }
   });
 
   function draw(){
     cx.clearRect(0,0,W,H);
-    const cxW=W/2, cyH=H/2;
-    cx.fillStyle='#100d08';cx.fillRect(0,0,W,H);
+    const cxW = W/2, cyH = H/2;
+    const vx = cxW, vy = cyH*0.52;
 
-    const vx=cxW, vy=cyH*.55;
+    // CEILING
+    cx.beginPath();
+    cx.moveTo(0,0); cx.lineTo(W,0); cx.lineTo(vx,vy); cx.closePath();
+    const ceilG = cx.createLinearGradient(0,0,0,vy);
+    ceilG.addColorStop(0,'#181410'); ceilG.addColorStop(1,'#2a2218');
+    cx.fillStyle = ceilG; cx.fill();
 
     // LEFT WALL
-    cx.beginPath();cx.moveTo(0,0);cx.lineTo(0,H);cx.lineTo(cxW*.22,H);cx.lineTo(vx,vy);cx.closePath();
-    cx.fillStyle='#1c1710';cx.fill();
+    cx.beginPath();
+    cx.moveTo(0,0); cx.lineTo(0,H); cx.lineTo(W*0.2,H); cx.lineTo(vx,vy); cx.closePath();
+    const lwG = cx.createLinearGradient(0,0,W*0.2,0);
+    lwG.addColorStop(0,'#141008'); lwG.addColorStop(1,'#2e261a');
+    cx.fillStyle = lwG; cx.fill();
+
     // RIGHT WALL
-    cx.beginPath();cx.moveTo(W,0);cx.lineTo(W,H);cx.lineTo(W-cxW*.22,H);cx.lineTo(vx,vy);cx.closePath();
-    cx.fillStyle='#181408';cx.fill();
-    // CEILING
-    cx.beginPath();cx.moveTo(0,0);cx.lineTo(W,0);cx.lineTo(vx,vy);cx.closePath();
-    const cg=cx.createLinearGradient(0,0,0,vy);cg.addColorStop(0,'#0c0a07');cg.addColorStop(1,'#181410');
-    cx.fillStyle=cg;cx.fill();
+    cx.beginPath();
+    cx.moveTo(W,0); cx.lineTo(W,H); cx.lineTo(W*0.8,H); cx.lineTo(vx,vy); cx.closePath();
+    const rwG = cx.createLinearGradient(W,0,W*0.8,0);
+    rwG.addColorStop(0,'#100e08'); rwG.addColorStop(1,'#281e14');
+    cx.fillStyle = rwG; cx.fill();
+
     // FLOOR — red carpet
-    cx.beginPath();cx.moveTo(0,H);cx.lineTo(W,H);cx.lineTo(vx,vy);cx.closePath();
-    const fg=cx.createLinearGradient(0,vy,0,H);
-    fg.addColorStop(0,'#1e0808');fg.addColorStop(.3,'#2a0c0c');fg.addColorStop(.7,'#360e0e');fg.addColorStop(1,'#3e1010');
-    cx.fillStyle=fg;cx.fill();
+    cx.beginPath();
+    cx.moveTo(0,H); cx.lineTo(W,H); cx.lineTo(vx,vy); cx.closePath();
+    const flG = cx.createLinearGradient(0,vy,0,H);
+    flG.addColorStop(0,'#2a0a0a'); flG.addColorStop(0.4,'#380e0e'); flG.addColorStop(1,'#441212');
+    cx.fillStyle = flG; cx.fill();
 
     // perspective lines floor
-    for(let i=0;i<=10;i++){cx.beginPath();cx.moveTo(vx,vy);cx.lineTo(W*i/10,H);cx.strokeStyle='rgba(50,12,12,.4)';cx.lineWidth=.5;cx.stroke();}
-    for(let j=1;j<8;j++){
-      const p=Math.pow(j/8,1.4),y=vy+(H-vy)*p,hw=(cxW-cxW*.22*(1-p))*p+(cxW*.22*(1-p));
-      cx.beginPath();cx.moveTo(cxW-hw*.9,y);cx.lineTo(cxW+hw*.9,y);cx.strokeStyle=`rgba(45,10,10,${.25+p*.2})`;cx.lineWidth=.4;cx.stroke();
+    for(let i=1;i<9;i++){
+      cx.beginPath(); cx.moveTo(vx,vy); cx.lineTo(W*i/9,H);
+      cx.strokeStyle = 'rgba(50,12,12,0.35)'; cx.lineWidth = 0.4; cx.stroke();
+    }
+    for(let j=1;j<7;j++){
+      const p = Math.pow(j/7,1.5), y = vy+(H-vy)*p, hw = W*0.8*p*0.5;
+      cx.beginPath(); cx.moveTo(cxW-hw,y); cx.lineTo(cxW+hw,y);
+      cx.strokeStyle = `rgba(42,10,10,${0.25+p*0.15})`; cx.lineWidth = 0.3; cx.stroke();
     }
 
-    // NEON TUBES
-    const nF=.7+Math.sin(t*1.8)*.06+Math.sin(t*11.3)*.03+Math.sin(t*31)*.015;
-    for(let n=0;n<5;n++){
-      const p=Math.pow((n+1)/5,1.3);
-      const nW=(W-cxW*.44)*.55*(1-p)+12;
-      const nX=cxW-nW/2;
-      const nY=vy+(H*.04)*(1-p)+H*.005;
-      cx.fillStyle=`rgba(200,200,180,${(.35+p*.1)*nF})`;
-      cx.fillRect(nX,nY,nW,2*(1-p)+.5);
-      // diffuse halo — no visible spot
-      const hg=cx.createRadialGradient(cxW,nY,0,cxW,nY,nW*.7);
-      hg.addColorStop(0,`rgba(180,170,130,${.06*(1-p*.3)*nF})`);
-      hg.addColorStop(.5,`rgba(140,130,90,${.025*(1-p*.3)*nF})`);
-      hg.addColorStop(1,'rgba(0,0,0,0)');
-      cx.fillStyle=hg;cx.fillRect(nX-nW*.3,nY,nW*1.6,(H-nY)*.6*(1-p*.5));
-    }
+    // AMBIENT LIGHT — diffuse, no visible source
+    const ambG = cx.createRadialGradient(vx,vy,0,vx,vy,H*0.9);
+    ambG.addColorStop(0,`rgba(200,165,100,${0.13+Math.sin(t*0.3)*0.01})`);
+    ambG.addColorStop(0.25,'rgba(150,120,65,0.07)');
+    ambG.addColorStop(0.6,'rgba(90,70,35,0.03)');
+    ambG.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle = ambG; cx.fillRect(0,0,W,H);
 
-    // diffuse ambient
-    const diff=cx.createRadialGradient(cxW,vy,10,cxW,cyH,H*.6);
-    diff.addColorStop(0,`rgba(160,148,100,${.07*nF})`);diff.addColorStop(.4,`rgba(100,90,55,${.03*nF})`);diff.addColorStop(1,'rgba(0,0,0,0)');
-    cx.fillStyle=diff;cx.fillRect(0,0,W,H);
+    // ceiling light
+    const ceilL = cx.createLinearGradient(0,0,0,vy);
+    ceilL.addColorStop(0,'rgba(0,0,0,0)');
+    ceilL.addColorStop(1,'rgba(180,150,85,0.08)');
+    cx.fillStyle = ceilL;
+    cx.beginPath(); cx.moveTo(0,0); cx.lineTo(W,0); cx.lineTo(vx,vy); cx.closePath(); cx.fill();
 
-    // end of corridor glow — clickable hint
-    const eg=cx.createRadialGradient(vx,vy,0,vx,vy,W*.15);
-    eg.addColorStop(0,'rgba(180,160,90,.08)');eg.addColorStop(.5,'rgba(120,100,50,.03)');eg.addColorStop(1,'rgba(0,0,0,0)');
-    cx.fillStyle=eg;cx.beginPath();cx.arc(vx,vy,W*.2,0,Math.PI*2);cx.fill();
+    // floor light
+    const floorL = cx.createLinearGradient(0,vy,0,H);
+    floorL.addColorStop(0,'rgba(160,80,40,0.08)');
+    floorL.addColorStop(0.5,'rgba(100,45,20,0.04)');
+    floorL.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle = floorL;
+    cx.beginPath(); cx.moveTo(0,H); cx.lineTo(W,H); cx.lineTo(vx,vy); cx.closePath(); cx.fill();
 
-    // door at end
-    const eW=W*.06,eH=H*.12,eX=vx-eW/2,eY=vy-eH*.3;
-    cx.fillStyle='rgba(8,6,4,.85)';cx.fillRect(eX,eY,eW,eH);
-    cx.strokeStyle='rgba(60,48,22,.4)';cx.lineWidth=.6;cx.strokeRect(eX,eY,eW,eH);
+    // wall lights
+    const mwL = cx.createLinearGradient(W*0.2,0,vx,0);
+    mwL.addColorStop(0,'rgba(170,135,70,0.06)'); mwL.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle = mwL;
+    cx.beginPath(); cx.moveTo(0,0); cx.lineTo(0,H); cx.lineTo(W*0.2,H); cx.lineTo(vx,vy); cx.closePath(); cx.fill();
 
-    cx.fillStyle='rgba(100,75,25,.006)';cx.fillRect(0,(t*15)%H,W,1);
+    const mwR = cx.createLinearGradient(W*0.8,0,vx,0);
+    mwR.addColorStop(0,'rgba(160,125,65,0.06)'); mwR.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle = mwR;
+    cx.beginPath(); cx.moveTo(W,0); cx.lineTo(W,H); cx.lineTo(W*0.8,H); cx.lineTo(vx,vy); cx.closePath(); cx.fill();
 
-    const vig=cx.createRadialGradient(cxW,cyH,H*.08,cxW,cyH,H*.8);
-    vig.addColorStop(0,'rgba(0,0,0,0)');vig.addColorStop(1,'rgba(0,0,0,.92)');
-    cx.fillStyle=vig;cx.fillRect(0,0,W,H);
+    // BLACK RECTANGLE at end — click to continue
+    const rW = W*0.10, rH = H*0.18;
+    const rX = vx-rW/2, rY = vy-rH*0.55;
+    cx.fillStyle = '#000000'; cx.fillRect(rX,rY,rW,rH);
+    cx.strokeStyle = 'rgba(60,42,20,0.5)'; cx.lineWidth = 0.8;
+    cx.strokeRect(rX,rY,rW,rH);
+
+    // VIGNETTE
+    const vig = cx.createRadialGradient(cxW,cyH,H*0.05,cxW,cyH,H*0.85);
+    vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(0,0,0,0.92)');
+    cx.fillStyle = vig; cx.fillRect(0,0,W,H);
   }
 
-  function loop(){t+=.016;resize();draw();requestAnimationFrame(loop);}
+  function loop(){ t+=0.016; resize(); draw(); requestAnimationFrame(loop); }
   loop();
 })();
 </script>
