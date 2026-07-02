@@ -104,7 +104,7 @@
   //  5 LINKS around intercom
   // =============================================
   const LINKS = [
-    { label:'cinema',         href:'cinema/guichet.html', angle:-Math.PI/2 }, // top — LIVE
+    { label:'cinema',         href:'cinema/booth.html', angle:-Math.PI/2 }, // top — LIVE
     { label:'coming soon...', href:'#', angle:0 },            // right
     { label:'coming soon...', href:'#', angle:Math.PI/2 },    // bottom
     { label:'coming soon...', href:'#', angle:Math.PI },      // left
