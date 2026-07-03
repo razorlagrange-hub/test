@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>room 3</title>
+<link rel="stylesheet" href="../css/main.css">
+<style>
+  body { background:#161a16; }
+  #back {
+    position:fixed;
+    bottom:5%;left:5%;
+    color:rgba(180,180,160,0.3);
+    font-size:9px;letter-spacing:0.25em;
+    text-transform:uppercase;
+    cursor:pointer;z-index:10;
+    text-decoration:none;
+    font-family:'Courier New',monospace;
+    transition:color 0.3s;
+  }
+  #back:hover { color:rgba(200,200,180,0.65); }
+
+  /* DO NOT SIT tape — clickable, looks like part of the scene */
+  #donotsit {
+    position:fixed;
+    z-index:10;
+    cursor:pointer;
+    /* positioned over the center seat in the row */
+    /* adjusted via JS based on screen size */
+  }
+</style>
+</head>
+<body>
+  <div class="fade-cover" id="fi"></div>
+  <canvas id="c"></canvas>
+  <div id="donotsit"></div>
+  <a id="back" href="hallway.html">← back</a>
+
+<script>
+(function(){
+  const cv=document.getElementById('c'),cx=cv.getContext('2d');
+  const fi=document.getElementById('fi');
+  const doNotSit=document.getElementById('donotsit');
+  let W,H,t=0;
+  let audioCtx=null;
+
+  function resize(){
+    W=window.innerWidth;H=window.innerHeight;
+    cv.width=W;cv.height=H;
+    // position DO NOT SIT element over center seat
+    const seatH=H*0.34;
+    const rowY=H*0.99;
+    const seatW=W*0.115;
+    const centerX=W/7*3.5;
+    const tapW=seatW*0.88,tapeH=seatH*0.12;
+    const tapeX=centerX-tapW/2;
+    const tapeY=rowY-seatH*0.85+seatH*0.3;
+    doNotSit.style.left=tapeX+'px';
+    doNotSit.style.top=tapeY+'px';
+    doNotSit.style.width=tapW+'px';
+    doNotSit.style.height=tapeH+'px';
+    doNotSit.style.cursor='pointer';
+  }
+  resize();
+
+  setTimeout(()=>fi.classList.add('done'),100);
+
+  // DO NOT SIT click — go to liminal trap
+  doNotSit.addEventListener('click',()=>{
+    fi.style.transition='opacity 0.5s';
+    fi.style.opacity='1';
+    setTimeout(()=>{ window.location.href='liminal.html'; },500);
+  });
+
+  // fluorescent hum
+  function startHum(){
+    if(audioCtx) return;
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    const o1=audioCtx.createOscillator(),o2=audioCtx.createOscillator();
+    const g=audioCtx.createGain();
+    o1.type='sine';o1.frequency.value=120;
+    o2.type='sine';o2.frequency.value=240;
+    const g2=audioCtx.createGain();g2.gain.value=0.3;
+    g.gain.value=0.055;
+    o1.connect(g);o2.connect(g2);g2.connect(g);
+    g.connect(audioCtx.destination);
+    o1.start();o2.start();
+  }
+  document.addEventListener('click',startHum,{once:true});
+
+  function drawSeat(x,y,sw,sh){
+    const lit=0.5+Math.sin(t*0.3)*0.02;
+    const g=cx.createLinearGradient(x-sw/2,y-sh,x+sw/2,y);
+    g.addColorStop(0,`rgb(${55+lit*30|0},${8+lit*5|0},8)`);
+    g.addColorStop(1,`rgb(${28+lit*10|0},4,4)`);
+    cx.beginPath();cx.moveTo(x-sw*.46,y);cx.lineTo(x+sw*.46,y);cx.lineTo(x+sw*.42,y-sh*.74);cx.lineTo(x-sw*.42,y-sh*.74);cx.closePath();cx.fillStyle=g;cx.fill();
+    cx.beginPath();cx.ellipse(x,y-sh*.72,sw*.38,sh*.06,0,0,Math.PI*2);cx.fillStyle=`rgb(${50+lit*25|0},6,6)`;cx.fill();
+    cx.beginPath();cx.moveTo(x-sw*.4,y-sh*.4);cx.lineTo(x+sw*.4,y-sh*.4);cx.strokeStyle='rgba(30,4,4,.6)';cx.lineWidth=1.2;cx.stroke();
+    cx.fillStyle='rgba(18,2,2,.9)';cx.fillRect(x-sw*.54,y-sh*.4,sw*.1,sh*.22);cx.fillRect(x+sw*.44,y-sh*.4,sw*.1,sh*.22);
+    cx.beginPath();cx.moveTo(x-sw*.46,y);cx.lineTo(x+sw*.46,y);cx.lineTo(x+sw*.46,y-sh*.2);cx.lineTo(x-sw*.46,y-sh*.2);cx.closePath();cx.fillStyle=`rgb(${38+lit*18|0},4,4)`;cx.fill();
+  }
+
+  function draw(){
+    cx.clearRect(0,0,W,H);
+    const cxW=W/2;
+
+    // cold grey-green background
+    cx.fillStyle='#161a16';cx.fillRect(0,0,W,H);
+
+    // SCREEN — off, partially covered with tarp
+    const sw=W*0.88,sh=sw*0.52,sx=cxW-sw/2,sy=H*0.02;
+    cx.fillStyle='#0e100e';cx.fillRect(sx-12,sy-8,sw+24,sh+16);
+    cx.fillStyle='#080a08';cx.fillRect(sx,sy,sw,sh);
+
+    // tarp over screen
+    cx.save();cx.globalAlpha=0.82;
+    const tarpG=cx.createLinearGradient(sx,sy,sx,sy+sh*0.7);
+    tarpG.addColorStop(0,'#1e221e');tarpG.addColorStop(0.5,'#181c18');tarpG.addColorStop(1,'#121612');
+    cx.fillStyle=tarpG;
+    cx.beginPath();
+    cx.moveTo(sx-5,sy-2);cx.lineTo(sx+sw*0.62,sy-2);
+    cx.lineTo(sx+sw*0.65,sy+sh*0.72);cx.lineTo(sx-5,sy+sh*0.75);
+    cx.closePath();cx.fill();
+    for(let i=0;i<5;i++){
+      const wx=sx+sw*(0.05+i*0.1),wy=sy+Math.sin(i*1.3)*8;
+      cx.beginPath();cx.moveTo(wx,wy);cx.lineTo(wx+8,wy+sh*0.7);
+      cx.strokeStyle='rgba(30,35,28,0.6)';cx.lineWidth=0.8;cx.stroke();
+    }
+    cx.restore();
+
+    // MAINTENANCE LIGHTS — cold fluorescent work lamps
+    const lamps=[{x:W*0.18,y:H*0.28},{x:W*0.82,y:H*0.3}];
+    lamps.forEach((lamp,i)=>{
+      const flicker=0.88+Math.sin(t*2.1+i*3.7)*0.06+Math.sin(t*17+i)*0.025;
+      cx.strokeStyle='rgba(100,105,95,0.7)';cx.lineWidth=2;
+      cx.beginPath();cx.moveTo(lamp.x,lamp.y+10);cx.lineTo(lamp.x,H*0.62);cx.stroke();
+      cx.fillStyle='rgba(80,85,75,0.8)';cx.fillRect(lamp.x-18,H*0.62,36,6);
+      cx.save();cx.translate(lamp.x,lamp.y);
+      cx.fillStyle='rgba(90,95,85,0.9)';cx.fillRect(-20,-8,40,16);
+      cx.fillStyle=`rgba(230,240,220,${0.9*flicker})`;cx.fillRect(-16,-5,32,10);
+      cx.restore();
+      const lightG=cx.createRadialGradient(lamp.x,lamp.y,0,lamp.x,lamp.y+H*0.3,W*0.45);
+      lightG.addColorStop(0,`rgba(210,230,200,${0.14*flicker})`);
+      lightG.addColorStop(0.3,`rgba(180,200,170,${0.055*flicker})`);
+      lightG.addColorStop(1,'rgba(0,0,0,0)');
+      cx.fillStyle=lightG;cx.fillRect(0,0,W,H);
+    });
+
+    // CABLES on floor
+    cx.beginPath();
+    cx.moveTo(W*0.15,H*0.64);cx.bezierCurveTo(W*0.3,H*0.67,W*0.45,H*0.61,W*0.6,H*0.65);cx.bezierCurveTo(W*0.72,H*0.68,W*0.8,H*0.63,W*0.9,H*0.66);
+    cx.strokeStyle='rgba(30,35,28,0.8)';cx.lineWidth=4;cx.stroke();
+    cx.strokeStyle='rgba(50,55,45,0.5)';cx.lineWidth=2;cx.stroke();
+    cx.beginPath();
+    cx.moveTo(W*0.18,H*0.63);cx.bezierCurveTo(W*0.35,H*0.60,W*0.5,H*0.66,W*0.65,H*0.62);
+    cx.strokeStyle='rgba(25,28,22,0.6)';cx.lineWidth=3;cx.stroke();
+
+    // FLOOR — concrete
+    const floorG=cx.createLinearGradient(0,H*0.62,0,H);
+    floorG.addColorStop(0,'#1e201e');floorG.addColorStop(1,'#141614');
+    cx.fillStyle=floorG;cx.fillRect(0,H*0.62,W,H*0.38);
+    for(let x=0;x<W;x+=W/8){cx.beginPath();cx.moveTo(x,H*0.62);cx.lineTo(x,H);cx.strokeStyle='rgba(30,34,28,0.3)';cx.lineWidth=0.4;cx.stroke();}
+    for(let y=H*0.63;y<H;y+=H/12){cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.strokeStyle='rgba(28,32,26,0.2)';cx.lineWidth=0.3;cx.stroke();}
+
+    // MAINTENANCE CART
+    const cartX=W*0.08,cartY=H*0.5;
+    cx.fillStyle='rgba(60,65,55,0.85)';cx.fillRect(cartX,cartY,W*0.06,H*0.12);
+    cx.fillStyle='rgba(45,50,40,0.7)';
+    cx.fillRect(cartX,cartY+H*0.04,W*0.06,H*0.01);cx.fillRect(cartX,cartY+H*0.08,W*0.06,H*0.01);
+    cx.beginPath();cx.ellipse(cartX+W*0.012,cartY+H*0.122,5,5,0,0,Math.PI*2);cx.fillStyle='rgba(40,42,38,0.9)';cx.fill();
+    cx.beginPath();cx.ellipse(cartX+W*0.048,cartY+H*0.122,5,5,0,0,Math.PI*2);cx.fill();
+    cx.fillStyle='rgba(80,85,70,0.6)';cx.fillRect(cartX+4,cartY-H*0.04,W*0.02,H*0.04);
+    cx.fillStyle='rgba(90,80,60,0.5)';cx.fillRect(cartX+W*0.03,cartY-H*0.03,W*0.018,H*0.03);
+
+    // SEATS
+    const rowY=H*0.99,seatW=W*0.115,seatH=H*0.34;
+    for(let s=0;s<7;s++) drawSeat(W/7*.5+s*W/7,rowY,seatW,seatH);
+
+    // DO NOT SIT tape on center seat (drawn on canvas)
+    const centerX=W/7*3.5;
+    const tapeW=seatW*0.88,tapeH2=seatH*0.12;
+    const tapeX=centerX-tapeW/2,tapeY=rowY-seatH*0.85+seatH*0.3;
+    cx.fillStyle='rgba(200,180,20,0.75)';cx.fillRect(tapeX,tapeY,tapeW,tapeH2);
+    cx.fillStyle='rgba(10,10,10,0.85)';
+    cx.font=`bold ${seatW*0.13}px 'Courier New'`;cx.textAlign='center';cx.textBaseline='middle';
+    cx.fillText('DO NOT SIT',centerX,tapeY+tapeH2*0.5);
+
+    // CLOSED FOR MAINTENANCE sign
+    const signX=cxW,signY=H*0.15;
+    cx.fillStyle='rgba(200,180,20,0.8)';cx.fillRect(signX-W*0.18,signY-14,W*0.36,28);
+    cx.fillStyle='rgba(10,10,10,0.9)';
+    cx.font=`bold ${W*0.018}px 'Courier New'`;cx.textAlign='center';cx.textBaseline='middle';
+    cx.fillText('CLOSED FOR MAINTENANCE',signX,signY);
+
+    // bottom fade
+    const botG=cx.createLinearGradient(0,H*0.84,0,H);
+    botG.addColorStop(0,'rgba(0,0,0,0)');botG.addColorStop(1,'rgba(0,0,0,0.97)');
+    cx.fillStyle=botG;cx.fillRect(0,H*0.84,W,H*0.16);
+
+    // vignette
+    const vig=cx.createRadialGradient(cxW,H*0.4,H*0.08,cxW,H*0.5,H*0.85);
+    vig.addColorStop(0,'rgba(0,0,0,0)');vig.addColorStop(1,'rgba(0,0,0,0.75)');
+    cx.fillStyle=vig;cx.fillRect(0,0,W,H);
+
+    // global flicker
+    const gf=0.96+Math.sin(t*19.3)*0.025+Math.sin(t*7.1)*0.015;
+    cx.fillStyle=`rgba(200,220,190,${(1-gf)*0.08})`;cx.fillRect(0,0,W,H);
+  }
+
+  window.addEventListener('resize',resize);
+
+  function loop(){t+=0.016;resize();draw();requestAnimationFrame(loop);}
+  loop();
+})();
+</script>
+</body>
+</html>
