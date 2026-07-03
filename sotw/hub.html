@@ -1,110 +1,232 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>somewhereoutsidethewindow — hub</title>
-<link rel="stylesheet" href="css/main.css">
-<style>
-  #ui { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; opacity:0; transition:opacity 2.8s ease; }
-  #ui.visible { opacity:1; }
-  #c { opacity:0; transition:opacity 2.4s ease; }
-  #c.visible { opacity:1; }
-  #svgWrap { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:170px; cursor:pointer; z-index:10; opacity:0; transition:opacity 1.6s ease; }
-  #svgWrap.visible { opacity:1; }
-  #dialogBox { position:fixed; bottom:8%; left:50%; transform:translateX(-50%); width:88%; max-width:520px; background:#0a0908; border:2px solid #4a4a4a; border-radius:2px; padding:16px 18px; opacity:0; pointer-events:none; z-index:20; box-shadow:0 0 0 1px #1a1a1a,0 4px 20px rgba(0,0,0,.6); transition:opacity .4s; }
-  #dialogText { color:#e8e0d0; font-family:'Courier New',monospace; font-size:13px; line-height:1.6; letter-spacing:.02em; white-space:pre-wrap; min-height:21px; }
-  .lk { position:absolute; pointer-events:all; cursor:pointer; font-family:'Courier New',monospace; letter-spacing:.18em; user-select:none; color:#fff; }
-</style>
-</head>
-<body>
-<div class="fade-cover" id="fadeIn"></div>
-<canvas id="c"></canvas>
-<div id="ui"></div>
-<div id="svgWrap">
-  <svg viewBox="0 0 300 400" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;overflow:visible;">
-    <defs>
-      <linearGradient id="corps" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" style="stop-color:#3a3a3a"/><stop offset="25%" style="stop-color:#565656"/>
-        <stop offset="50%" style="stop-color:#666"/><stop offset="75%" style="stop-color:#4e4e4e"/>
-        <stop offset="100%" style="stop-color:#323232"/>
-      </linearGradient>
-      <linearGradient id="comb" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" style="stop-color:#3c3c3c"/><stop offset="30%" style="stop-color:#585858"/>
-        <stop offset="55%" style="stop-color:#666"/><stop offset="100%" style="stop-color:#363636"/>
-      </linearGradient>
-      <radialGradient id="led" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" style="stop-color:#ff3300;stop-opacity:1"/>
-        <stop offset="60%" style="stop-color:#cc1500;stop-opacity:.6"/>
-        <stop offset="100%" style="stop-color:#000;stop-opacity:0"/>
-      </radialGradient>
-    </defs>
-    <rect x="60" y="300" width="180" height="12" rx="3" fill="#222" stroke="#383838" stroke-width=".5"/>
-    <rect x="55" y="308" width="190" height="6" rx="2" fill="#1a1a1a" stroke="#2e2e2e" stroke-width=".5"/>
-    <rect x="72" y="130" width="156" height="178" rx="4" fill="url(#corps)" stroke="#262626" stroke-width="1"/>
-    <rect x="72" y="130" width="8" height="178" rx="2" fill="#2a2a2a" opacity=".6"/>
-    <rect x="220" y="130" width="8" height="178" rx="2" fill="#1c1c1c" opacity=".7"/>
-    <circle cx="82" cy="140" r="4" fill="#2e2e2e" stroke="#484848" stroke-width=".8"/>
-    <line x1="80" y1="140" x2="84" y2="140" stroke="#5a5a5a" stroke-width=".6"/>
-    <line x1="82" y1="138" x2="82" y2="142" stroke="#5a5a5a" stroke-width=".6"/>
-    <circle cx="218" cy="140" r="4" fill="#2e2e2e" stroke="#484848" stroke-width=".8"/>
-    <line x1="216" y1="140" x2="220" y2="140" stroke="#5a5a5a" stroke-width=".6"/>
-    <line x1="218" y1="138" x2="218" y2="142" stroke="#5a5a5a" stroke-width=".6"/>
-    <circle cx="82" cy="298" r="4" fill="#2e2e2e" stroke="#484848" stroke-width=".8"/>
-    <line x1="80" y1="298" x2="84" y2="298" stroke="#5a5a5a" stroke-width=".6"/>
-    <line x1="82" y1="296" x2="82" y2="300" stroke="#5a5a5a" stroke-width=".6"/>
-    <circle cx="218" cy="298" r="4" fill="#2e2e2e" stroke="#484848" stroke-width=".8"/>
-    <line x1="216" y1="298" x2="220" y2="298" stroke="#5a5a5a" stroke-width=".6"/>
-    <line x1="218" y1="296" x2="218" y2="300" stroke="#5a5a5a" stroke-width=".6"/>
-    <rect x="88" y="145" width="124" height="55" rx="2" fill="#1c1c1c" stroke="#363636" stroke-width=".6"/>
-    <g fill="#0a0a0a">
-      <circle cx="100" cy="155" r="2"/><circle cx="110" cy="155" r="2"/><circle cx="120" cy="155" r="2"/><circle cx="130" cy="155" r="2"/><circle cx="140" cy="155" r="2"/><circle cx="150" cy="155" r="2"/><circle cx="160" cy="155" r="2"/><circle cx="170" cy="155" r="2"/><circle cx="180" cy="155" r="2"/><circle cx="190" cy="155" r="2"/><circle cx="200" cy="155" r="2"/>
-      <circle cx="100" cy="163" r="2"/><circle cx="110" cy="163" r="2"/><circle cx="120" cy="163" r="2"/><circle cx="130" cy="163" r="2"/><circle cx="140" cy="163" r="2"/><circle cx="150" cy="163" r="2"/><circle cx="160" cy="163" r="2"/><circle cx="170" cy="163" r="2"/><circle cx="180" cy="163" r="2"/><circle cx="190" cy="163" r="2"/><circle cx="200" cy="163" r="2"/>
-      <circle cx="100" cy="171" r="2"/><circle cx="110" cy="171" r="2"/><circle cx="120" cy="171" r="2"/><circle cx="130" cy="171" r="2"/><circle cx="140" cy="171" r="2"/><circle cx="150" cy="171" r="2"/><circle cx="160" cy="171" r="2"/><circle cx="170" cy="171" r="2"/><circle cx="180" cy="171" r="2"/><circle cx="190" cy="171" r="2"/><circle cx="200" cy="171" r="2"/>
-      <circle cx="100" cy="179" r="2"/><circle cx="110" cy="179" r="2"/><circle cx="120" cy="179" r="2"/><circle cx="130" cy="179" r="2"/><circle cx="140" cy="179" r="2"/><circle cx="150" cy="179" r="2"/><circle cx="160" cy="179" r="2"/><circle cx="170" cy="179" r="2"/><circle cx="180" cy="179" r="2"/><circle cx="190" cy="179" r="2"/><circle cx="200" cy="179" r="2"/>
-      <circle cx="100" cy="187" r="2"/><circle cx="110" cy="187" r="2"/><circle cx="120" cy="187" r="2"/><circle cx="130" cy="187" r="2"/><circle cx="140" cy="187" r="2"/><circle cx="150" cy="187" r="2"/><circle cx="160" cy="187" r="2"/><circle cx="170" cy="187" r="2"/><circle cx="180" cy="187" r="2"/><circle cx="190" cy="187" r="2"/><circle cx="200" cy="187" r="2"/>
-    </g>
-    <circle cx="210" cy="167" r="7" fill="#1a1a1a" stroke="#3a3a3a" stroke-width=".8"/>
-    <circle id="ledGlow" cx="210" cy="167" r="5" fill="url(#led)"/>
-    <circle cx="208" cy="165" r="1.3" fill="#ffaa88" opacity=".8"/>
-    <rect x="88" y="207" width="124" height="22" rx="1" fill="#1c1c1c" stroke="#323232" stroke-width=".5"/>
-    <text x="150" y="221" font-family="Courier New" font-size="8" fill="#555" text-anchor="middle" letter-spacing="3">INTERCOM</text>
-    <rect x="92" y="236" width="32" height="14" rx="2" fill="#222" stroke="#3a3a3a" stroke-width=".6"/>
-    <text x="108" y="246" font-family="Courier New" font-size="5" fill="#5a5a5a" text-anchor="middle">CALL</text>
-    <rect x="134" y="236" width="32" height="14" rx="2" fill="#222" stroke="#3a3a3a" stroke-width=".6"/>
-    <text x="150" y="246" font-family="Courier New" font-size="5" fill="#5a5a5a" text-anchor="middle">HOLD</text>
-    <rect x="176" y="236" width="32" height="14" rx="2" fill="#222" stroke="#3a3a3a" stroke-width=".6"/>
-    <text x="192" y="246" font-family="Courier New" font-size="5" fill="#5a5a5a" text-anchor="middle">END</text>
-    <ellipse cx="100" cy="278" rx="14" ry="14" fill="#262626" stroke="#3e3e3e" stroke-width=".8"/>
-    <ellipse cx="100" cy="278" rx="10" ry="10" fill="#1e1e1e" stroke="#363636" stroke-width=".5"/>
-    <g stroke="#444" stroke-width=".5">
-      <line x1="100" y1="264" x2="100" y2="268"/><line x1="100" y1="288" x2="100" y2="292"/>
-      <line x1="86" y1="278" x2="90" y2="278"/><line x1="110" y1="278" x2="114" y2="278"/>
-    </g>
-    <text x="100" y="295" font-family="Courier New" font-size="5" fill="#444" text-anchor="middle">VOL</text>
-    <rect x="122" y="262" width="86" height="30" rx="1" fill="#1a1a1a" stroke="#2e2e2e" stroke-width=".5"/>
-    <text x="165" y="274" font-family="Courier New" font-size="6" fill="#3a3a3a" text-anchor="middle" letter-spacing="1">MODEL 7X-4</text>
-    <text x="165" y="284" font-family="Courier New" font-size="5" fill="#303030" text-anchor="middle" letter-spacing="1">SN:00-00-00</text>
-    <path d="M150,308 Q148,316 144,318 Q140,320 142,324 Q144,328 148,326 Q152,324 150,328 Q148,332 144,334 Q140,136 142,140 Q144,144 148,142 Q152,140 150,144 Q148,348 144,350 Q140,352 142,356 Q144,360 148,358 Q152,356 150,360 Q148,364 146,368 Q144,372 148,374 Q152,374 152,370" fill="none" stroke="#2e2e2e" stroke-width="3" stroke-linecap="round"/>
-    <path id="wireInner" d="M150,308 Q148,316 144,318 Q140,320 142,324 Q144,328 148,326 Q152,324 150,328 Q148,332 144,334 Q140,336 142,340 Q144,344 148,342 Q152,340 150,344 Q148,348 144,350 Q140,352 142,356 Q144,360 148,358 Q152,356 150,360 Q148,364 146,368 Q144,372 148,374 Q152,374 152,370" fill="none" stroke="#444" stroke-width="1.5" stroke-linecap="round"/>
-    <rect x="80" y="88" width="140" height="48" rx="6" fill="#262626" stroke="#3a3a3a" stroke-width=".8"/>
-    <rect x="82" y="90" width="136" height="44" rx="5" fill="#1e1e1e"/>
-    <path d="M90,92 Q90,105 95,112 Q100,118 110,120 L190,120 Q200,118 205,112 Q210,105 210,92" fill="#161616" stroke="#2e2e2e" stroke-width=".5"/>
-    <g id="handset">
-      <path d="M95,50 Q88,52 85,58 Q82,65 84,72 Q86,79 92,83 Q98,87 108,88 L192,88 Q202,87 208,83 Q214,79 216,72 Q218,65 215,58 Q212,52 205,50 Q196,45 185,44 L115,44 Q104,45 95,50 Z" fill="url(#comb)" stroke="#262626" stroke-width=".8"/>
-      <ellipse cx="102" cy="66" rx="14" ry="18" fill="#1c1c1c" stroke="#363636" stroke-width=".6"/>
-      <circle cx="102" cy="66" r="8" fill="#161616" stroke="#2e2e2e" stroke-width=".5"/>
-      <circle cx="102" cy="60" r="1.2" fill="#0a0a0a"/><circle cx="97" cy="64" r="1.2" fill="#0a0a0a"/><circle cx="107" cy="64" r="1.2" fill="#0a0a0a"/><circle cx="102" cy="66" r="1.2" fill="#0a0a0a"/><circle cx="97" cy="70" r="1.2" fill="#0a0a0a"/><circle cx="107" cy="70" r="1.2" fill="#0a0a0a"/><circle cx="102" cy="74" r="1.2" fill="#0a0a0a"/>
-      <ellipse cx="198" cy="66" rx="14" ry="18" fill="#1c1c1c" stroke="#363636" stroke-width=".6"/>
-      <circle cx="198" cy="66" r="8" fill="#161616" stroke="#2e2e2e" stroke-width=".5"/>
-      <circle cx="198" cy="60" r="1.2" fill="#0a0a0a"/><circle cx="193" cy="64" r="1.2" fill="#0a0a0a"/><circle cx="203" cy="64" r="1.2" fill="#0a0a0a"/><circle cx="198" cy="66" r="1.2" fill="#0a0a0a"/><circle cx="193" cy="70" r="1.2" fill="#0a0a0a"/><circle cx="203" cy="70" r="1.2" fill="#0a0a0a"/><circle cx="198" cy="74" r="1.2" fill="#0a0a0a"/>
-      <rect x="114" y="48" width="72" height="36" rx="3" fill="#262626" stroke="#363636" stroke-width=".5"/>
-      <line x1="118" y1="66" x2="182" y2="66" stroke="#1a1a1a" stroke-width="1"/>
-      <path d="M120,50 Q148,47 176,50" stroke="#5a5a5a" stroke-width=".6" fill="none" opacity=".7"/>
-    </g>
-  </svg>
-</div>
-<div id="dialogBox"><div id="dialogText"></div></div>
-<script src="js/hub.js"></script>
-</body>
-</html>
+(function(){
+  const cv      = document.getElementById('c');
+  const cx      = cv.getContext('2d');
+  const ui      = document.getElementById('ui');
+  const svgWrap = document.getElementById('svgWrap');
+  const handset = document.getElementById('handset');
+  const ledGlow = document.getElementById('ledGlow');
+  const wireInner = document.getElementById('wireInner');
+  const dialogBox = document.getElementById('dialogBox');
+  const dialogText= document.getElementById('dialogText');
+  const fadeIn    = document.getElementById('fadeIn');
+
+  let W=0, H=0, t=0;
+
+  // =============================================
+  //  ENTRANCE SEQUENCE
+  //  1. fade from black
+  //  2. intercom appears
+  //  3. intercom speaks
+  //  4. hub (background + links) fade in
+  // =============================================
+  setTimeout(()=> fadeIn.classList.add('done'), 100);
+  setTimeout(()=> svgWrap.classList.add('visible'), 600);
+  setTimeout(()=> typeLine(LINES[0]), 1400);
+  setTimeout(()=>{ cv.classList.add('visible'); ui.classList.add('visible'); }, 2200);
+
+  // =============================================
+  //  INTERCOM LINES
+  // =============================================
+  const LINES = [
+    "Welcome to the Hub. I'll appear throughout your visit to provide additional information whenever necessary.",
+    "The cinema section is accessible through the top link.",
+    "Navigate using the links around me. Some are not yet available.",
+    "This is the hub. All sections of the site are accessible from here.",
+    "Some sections are still under construction.",
+    "Return here at any time to navigate to another section.",
+    "Click on any available link to explore.",
+  ];
+
+  let lineIndex = 0;
+  function nextLine(){
+    lineIndex = (lineIndex + 1) % LINES.length;
+    return LINES[lineIndex];
+  }
+
+  // =============================================
+  //  AUDIO
+  // =============================================
+  let audioCtx = null;
+  function initAudio(){
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  }
+  // auto-init if coming from index with ?audio=1
+  if(new URLSearchParams(window.location.search).get('audio')==='1'){
+    try{ initAudio(); } catch(e){}
+  }
+
+  function playBlip(i){
+    if(!audioCtx) return;
+    const freq = 130+((i*37)%9)*14;
+    const osc  = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.045, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.045);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime+0.05);
+  }
+
+  let typing=false, hideTimer=null;
+  function typeLine(line){
+    initAudio();
+    typing = true;
+    if(hideTimer) clearTimeout(hideTimer);
+    dialogBox.style.opacity = '1';
+    dialogText.textContent  = '';
+    let i=0;
+    function step(){
+      if(i<line.length){
+        const ch = line[i];
+        dialogText.textContent += ch;
+        if(ch!==' ') playBlip(i);
+        i++;
+        setTimeout(step, 28+Math.random()*14);
+      } else {
+        typing = false;
+        const readTime = Math.max(3500, line.length*68);
+        hideTimer = setTimeout(()=>{ dialogBox.style.opacity='0'; }, readTime);
+      }
+    }
+    step();
+  }
+
+  // =============================================
+  //  5 LINKS around intercom
+  // =============================================
+  const LINKS = [
+    { label:'cinema',         href:'cinema/guichet.html', angle:-Math.PI/2 }, // top — LIVE
+    { label:'coming soon...', href:'#', angle:0 },            // right
+    { label:'coming soon...', href:'#', angle:Math.PI/2 },    // bottom
+    { label:'coming soon...', href:'#', angle:Math.PI },      // left
+    { label:'???',            href:'#', angle:-Math.PI/4 },   // top-right offset
+  ];
+
+  const links = [];
+  function initLinks(){
+    ui.querySelectorAll('.lk').forEach(e=>e.remove());
+    links.length = 0;
+    LINKS.forEach((link,i)=>{
+      const el = document.createElement('span');
+      el.className = 'lk';
+      el.textContent = link.label;
+      el.style.fontSize      = '9px';
+      el.style.color         = '#888';
+      el.style.letterSpacing = '0.12em';
+      el.style.cursor        = link.href==='#'?'default':'pointer';
+      if(link.href!=='#') el.addEventListener('click',()=>{ window.location.href=link.href; });
+      ui.appendChild(el);
+      links.push({ el, baseAngle:link.angle, phase:i*Math.PI*0.5 });
+    });
+  }
+
+  function updateLinks(){
+    const cxW=W/2, cyH=H/2;
+    const R = Math.min(W,H)*0.36;
+    links.forEach((l,i)=>{
+      const wobble = Math.sin(t*0.25+l.phase)*0.018;
+      const a = l.baseAngle+wobble;
+      const r = R+Math.sin(t*0.18+l.phase)*6;
+      const x = cxW+Math.cos(a)*r;
+      const y = cyH+Math.sin(a)*r;
+      l.el.style.left      = x+'px';
+      l.el.style.top       = y+'px';
+      l.el.style.transform = 'translate(-50%,-50%)';
+      l.el.style.opacity   = 0.3+Math.abs(Math.sin(t*0.2+l.phase))*0.2;
+    });
+  }
+
+  // =============================================
+  //  PHONE ANIMATION
+  // =============================================
+  let nextBlink=Math.random()*3+1, blinkState=false, lastBlink=0, handsetOffT=-99;
+
+  function updatePhone(){
+    const tx=Math.sin(t*5.1)*0.12, ty=Math.cos(t*4.3)*0.1;
+    svgWrap.style.transform=`translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px))`;
+
+    if(t-lastBlink>nextBlink){
+      blinkState=!blinkState; lastBlink=t;
+      nextBlink=blinkState?(0.05+Math.random()*0.15):(0.5+Math.random()*3);
+    }
+    ledGlow.style.opacity=blinkState?'1':'0.15';
+
+    const sinceOff=t-handsetOffT;
+    let liftY=0, liftRot=0;
+    if(sinceOff<1.5){
+      const p=sinceOff<0.3?sinceOff/0.3:(sinceOff<1.2?1:1-(sinceOff-1.2)/0.3);
+      liftY=-6*Math.max(0,Math.min(1,p));
+      liftRot=-3*Math.max(0,Math.min(1,p));
+    }
+    const ht=Math.sin(t*9.4)*0.08;
+    handset.setAttribute('transform',`translate(${ht},${liftY}) rotate(${liftRot},150,66)`);
+    wireInner.setAttribute('transform',`translate(${Math.sin(t*1.3)*0.5},0)`);
+  }
+
+  svgWrap.addEventListener('click',()=>{
+    if(typing) return;
+    handsetOffT=t;
+    typeLine(nextLine());
+  });
+
+  // =============================================
+  //  BACKGROUND CANVAS
+  // =============================================
+  function draw(){
+    cx.clearRect(0,0,W,H);
+    cx.fillStyle='#0e0c09'; cx.fillRect(0,0,W,H);
+    const cxW=W/2, cyH=H/2;
+    const vx=cxW+Math.sin(t*0.08)*22, vy=cyH+Math.cos(t*0.05)*16;
+
+    // corridor lines
+    for(let i=0;i<10;i++){
+      const p=i/10, spread=p*W*0.65;
+      [[cyH+20+(H*0.5-20)*p],[cyH-20-(H*0.5-20)*p]].forEach(([yy])=>{
+        cx.beginPath(); cx.moveTo(vx,vy); cx.lineTo(cxW-spread/2,yy);
+        cx.strokeStyle=`rgba(42,26,9,${0.07+p*0.09})`; cx.lineWidth=0.4+p*0.4; cx.stroke();
+        cx.beginPath(); cx.moveTo(vx,vy); cx.lineTo(cxW+spread/2,yy); cx.stroke();
+      });
+    }
+
+    // black doors
+    [{x:0.12,y:0.22,w:0.09,h:0.38,ph:0},{x:0.80,y:0.26,w:0.08,h:0.34,ph:1.8},{x:0.44,y:0.06,w:0.12,h:0.13,ph:3.2}].forEach(d=>{
+      const dx=d.x*W+Math.sin(t*0.14+d.ph)*3;
+      const dy=d.y*H+Math.cos(t*0.10+d.ph)*2;
+      cx.fillStyle='rgba(3,2,1,.95)'; cx.fillRect(dx,dy,d.w*W,d.h*H);
+      cx.strokeStyle=`rgba(55,36,13,.28)`; cx.lineWidth=0.7; cx.strokeRect(dx,dy,d.w*W,d.h*H);
+    });
+
+    // bg noise
+    if(Math.random()<0.08){
+      cx.font=`${6+Math.random()*4}px 'Courier New'`;
+      cx.fillStyle=`rgba(${38+Math.random()*25},${23+Math.random()*15},${6+Math.random()*7},.05)`;
+      let s=''; const chars='0123456789ABCDEFabcdef_:/\\░▒▓';
+      for(let i=0;i<8;i++) s+=chars[Math.floor(Math.random()*chars.length)];
+      cx.fillText(s,Math.random()*W,Math.random()*H);
+    }
+
+    cx.fillStyle='rgba(120,80,20,.007)';
+    cx.fillRect(0,(t*24)%H,W,1);
+
+    const vig=cx.createRadialGradient(cxW,cyH,H*0.06,cxW,cyH,H*0.65);
+    vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(0,0,0,.9)');
+    cx.fillStyle=vig; cx.fillRect(0,0,W,H);
+  }
+
+  // =============================================
+  //  RESIZE + LOOP
+  // =============================================
+  function resize(){
+    const nW=window.innerWidth, nH=window.innerHeight;
+    if(nW===W && nH===H) return;
+    W=nW; H=nH; cv.width=W; cv.height=H;
+    if(links.length===0) initLinks();
+  }
+
+  function loop(){
+    t+=0.016; resize(); draw(); updateLinks(); updatePhone();
+    requestAnimationFrame(loop);
+  }
+  loop();
+})();
