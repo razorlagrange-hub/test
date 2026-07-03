@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>room 4</title>
+<link rel="stylesheet" href="../css/main.css">
+<style>
+  body { background:#000; }
+  #back {
+    position:fixed;
+    top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    color:rgba(255,255,255,0.45);
+    font-size:10px;
+    letter-spacing:0.25em;
+    text-transform:uppercase;
+    cursor:pointer;
+    z-index:10;
+    text-decoration:none;
+    font-family:'Courier New',monospace;
+    transition:color 0.4s;
+    opacity:0;
+    animation:fadein 2s ease 2s forwards;
+    white-space:nowrap;
+  }
+  #back:hover { color:rgba(255,255,255,0.85); }
+  @keyframes fadein { to { opacity:1; } }
+</style>
+</head>
+<body>
+  <div class="fade-cover" id="fi"></div>
+  <canvas id="c"></canvas>
+  <a id="back" href="../hub.html">← hub</a>
+
+<script>
+(function(){
+  const cv=document.getElementById('c'),cx=cv.getContext('2d');
+  const fi=document.getElementById('fi');
+  let W,H,t=0;
+
+  function resize(){W=window.innerWidth;H=window.innerHeight;cv.width=W;cv.height=H;}
+  resize();
+  setTimeout(()=>fi.classList.add('done'),100);
+
+  function draw(){
+    cx.clearRect(0,0,W,H);
+    // pure black — nothing
+    cx.fillStyle='#000';cx.fillRect(0,0,W,H);
+
+    // très léger bruit pour que ce soit pas juste du noir pur
+    for(let i=0;i<30;i++){
+      cx.fillStyle=`rgba(${Math.random()*15|0},${Math.random()*10|0},${Math.random()*8|0},${Math.random()*0.06})`;
+      cx.fillRect(Math.random()*W,Math.random()*H,Math.random()*2+0.5,Math.random()*2+0.5);
+    }
+  }
+
+  window.addEventListener('resize',resize);
+  function loop(){t+=0.016;draw();requestAnimationFrame(loop);}
+  loop();
+})();
+</script>
+</body>
+</html>
