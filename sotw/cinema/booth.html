@@ -7,58 +7,138 @@
 <link rel="stylesheet" href="../css/main.css">
 <style>
   body { background:#18150f; }
-  #hint {
+  #gbw { position:fixed; bottom:14%; left:50%; transform:translateX(-50%); z-index:10; opacity:0; transition:opacity 1.4s ease; }
+  #gbw.show { opacity:1; }
+  #gb { background:transparent; border:1px solid #4a4a4a; color:#777; font-family:'Courier New',monospace; font-size:10px; letter-spacing:.35em; text-transform:uppercase; padding:10px 28px; cursor:pointer; }
+  #gb:hover { border-color:#999; color:#bbb; }
+  #gb:disabled { opacity:.2; cursor:default; }
+  #tw { position:fixed; bottom:27%; left:50%; transform:translateX(-50%) translateY(14px); z-index:20; opacity:0; transition:opacity .35s ease,transform .4s ease; pointer-events:none; }
+  #tw.out { opacity:1; transform:translateX(-50%) translateY(0); pointer-events:all; }
+  #tw.taken { opacity:0; transform:translateX(-50%) translateY(-28px); pointer-events:none; }
+  #tk { background:#ede8dc; width:172px; padding:13px 15px; border-top:2px dashed #c8c0b0; border-bottom:2px dashed #c8c0b0; cursor:pointer; box-shadow:0 6px 28px rgba(0,0,0,.7); }
+  #tk-t { font-size:8px; letter-spacing:.3em; color:#999; text-transform:uppercase; margin-bottom:8px; }
+  #tk-b { font-size:10px; color:#222; letter-spacing:.06em; line-height:1.75; white-space:pre; }
+  #tk-h { font-size:7px; color:#bbb; letter-spacing:.2em; margin-top:9px; text-align:center; }
+
+  /* door */
+  #doorWrap {
     position:fixed;
-    bottom:6%;left:50%;
+    bottom:0; left:50%;
     transform:translateX(-50%);
-    color:rgba(180,140,60,0.4);
-    font-size:9px;letter-spacing:0.3em;
-    text-transform:uppercase;
-    font-family:'Courier New',monospace;
-    pointer-events:none;
+    z-index:25;
     opacity:0;
-    transition:opacity 1.5s ease;
-    z-index:10;
+    transition:opacity 0.5s ease;
+    cursor:pointer;
+    width:180px;
   }
-  #hint.show { opacity:1; }
+  #doorWrap.show { opacity:1; }
+  #doorWrap img { width:100%; display:block; transition:opacity 0.15s; }
 </style>
 </head>
 <body>
   <div class="fade-cover" id="fi"></div>
   <canvas id="c"></canvas>
-  <div id="hint">click the door</div>
+  <div id="gbw"><button id="gb">press</button></div>
+  <div id="tw">
+    <div id="tk">
+      <div id="tk-t">cinema</div>
+      <div id="tk-b"></div>
+      <div id="tk-h">take</div>
+    </div>
+  </div>
+  <div id="doorWrap">
+    <img id="doorImg" src="door_closed.png" alt="">
+  </div>
 
 <script>
 (function(){
   const cv=document.getElementById('c'),cx=cv.getContext('2d');
   const fi=document.getElementById('fi');
-  const hint=document.getElementById('hint');
-  let W,H,t=0;
+  const btn=document.getElementById('gb');
+  const btnWrap=document.getElementById('gbw');
+  const tw=document.getElementById('tw');
+  const tkb=document.getElementById('tk-b');
+  const doorWrap=document.getElementById('doorWrap');
+  const doorImg=document.getElementById('doorImg');
+  let W,H,t=0,ticketOut=false,audioCtx=null;
 
   function resize(){W=window.innerWidth;H=window.innerHeight;cv.width=W;cv.height=H;}
   resize();
   setTimeout(()=>fi.classList.add('done'),100);
-  setTimeout(()=>hint.classList.add('show'),2000);
+  setTimeout(()=>btnWrap.classList.add('show'),900);
 
-  function getDoor(){
-    const gW=W*0.36,gH=H*0.32,gX=W/2-gW/2,gY=H*0.26;
-    const dW=W*0.08,dH=H*0.18;
-    const dX=W/2-dW/2,dY=gY-dH*0.05;
-    return {x:dX,y:dY,w:dW,h:dH};
+  function pad(n){return String(n).padStart(2,'0');}
+  function randTicket(){
+    return[
+      `NO.  ${Math.floor(Math.random()*9000+1000)}`,
+      `ROW  ${String.fromCharCode(65+Math.floor(Math.random()*12))}`,
+      `SEAT ${Math.floor(Math.random()*30+1)}`,
+      `${pad(Math.floor(Math.random()*28+1))}.${pad(Math.floor(Math.random()*12+1))}.${2000+Math.floor(Math.random()*30)}`,
+      `${pad(Math.floor(Math.random()*24))}:${pad(Math.floor(Math.random()*60))}`,
+      `REF ${Math.random().toString(36).slice(2,8).toUpperCase()}`,
+    ].join('\n');
   }
 
-  cv.addEventListener('mousemove',e=>{
-    const d=getDoor();
-    const over=e.offsetX>d.x&&e.offsetX<d.x+d.w&&e.offsetY>d.y&&e.offsetY<d.y+d.h;
-    cv.style.cursor=over?'pointer':'default';
+  function initAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();}
+
+  function playPrinter(){
+    if(!audioCtx)return;
+    const dur=1.3,sr=audioCtx.sampleRate;
+    const buf=audioCtx.createBuffer(1,sr*dur,sr);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++){
+      const env=Math.min(i/600,1)*Math.max(0,1-(i-d.length*.72)/(d.length*.28));
+      d[i]=((Math.random()*2-1)*.5+Math.sin(i*.09)*.25+Math.sin(i*.22)*.12)*env*.38;
+    }
+    const src=audioCtx.createBufferSource(),gain=audioCtx.createGain(),filt=audioCtx.createBiquadFilter();
+    filt.type='bandpass';filt.frequency.value=1100;filt.Q.value=0.7;
+    src.buffer=buf;src.connect(filt);filt.connect(gain);gain.connect(audioCtx.destination);
+    gain.gain.value=0.55;src.start();
+  }
+
+  function playDoorCreak(){
+    if(!audioCtx)return;
+    const dur=0.8,sr=audioCtx.sampleRate;
+    const buf=audioCtx.createBuffer(1,sr*dur,sr);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++){
+      const env=Math.min(i/200,1)*Math.max(0,1-(i-d.length*.6)/(d.length*.4));
+      d[i]=(Math.sin(i*0.03+Math.sin(i*0.007)*10)*0.4+(Math.random()-0.5)*0.15)*env*.5;
+    }
+    const src=audioCtx.createBufferSource(),gain=audioCtx.createGain();
+    const filt=audioCtx.createBiquadFilter();
+    filt.type='lowpass';filt.frequency.value=600;
+    gain.gain.value=0.7;
+    src.buffer=buf;src.connect(filt);filt.connect(gain);gain.connect(audioCtx.destination);
+    src.start();
+  }
+
+  btn.addEventListener('click',()=>{
+    if(ticketOut)return;
+    initAudio();ticketOut=true;btn.disabled=true;
+    tkb.textContent=randTicket();
+    playPrinter();
+    setTimeout(()=>tw.classList.add('out'),180);
   });
 
-  cv.addEventListener('click',e=>{
-    const d=getDoor();
-    if(e.offsetX>d.x&&e.offsetX<d.x+d.w&&e.offsetY>d.y&&e.offsetY<d.y+d.h){
-      fi.style.transition='opacity 0.7s';fi.style.opacity='1';
-      setTimeout(()=>window.location.href='room3.html',700);
-    }
+  document.getElementById('tk').addEventListener('click',()=>{
+    initAudio();
+    tw.classList.add('taken');
+    // door appears
+    setTimeout(()=>{
+      doorWrap.classList.add('show');
+    },400);
+  });
+
+  // door click — animate open then navigate
+  doorWrap.addEventListener('click',()=>{
+    playDoorCreak();
+    doorImg.src='door_open.png';
+    setTimeout(()=>{ doorImg.src='door_fully_open.png'; },300);
+    setTimeout(()=>{
+      fi.style.transition='opacity 0.6s';fi.style.opacity='1';
+      setTimeout(()=>window.location.href='room3.html',600);
+    },700);
   });
 
   function draw(){
@@ -105,17 +185,8 @@
     cx.font="bold 8px 'Courier New'";cx.fillStyle=`rgba(240,60,60,${.65*nF})`;cx.textAlign='center';
     cx.fillText('BOX OFFICE',gX+gW*.5,gY+gH*.30);
 
-    // DOOR behind glass
-    const d=getDoor();
-    cx.fillStyle='rgba(40,28,10,0.9)';cx.fillRect(d.x-3,d.y-3,d.w+6,d.h+6);
-    const dg=cx.createLinearGradient(d.x,d.y,d.x+d.w,d.y);
-    dg.addColorStop(0,'#1e0808');dg.addColorStop(.5,'#280a0a');dg.addColorStop(1,'#180606');
-    cx.fillStyle=dg;cx.fillRect(d.x,d.y,d.w,d.h);
-    cx.strokeStyle='rgba(60,20,10,0.5)';cx.lineWidth=0.8;
-    cx.strokeRect(d.x+d.w*.1,d.y+d.h*.08,d.w*.8,d.h*.38);
-    cx.strokeRect(d.x+d.w*.1,d.y+d.h*.52,d.w*.8,d.h*.38);
-    cx.beginPath();cx.arc(d.x+d.w*.72,d.y+d.h*.5,d.w*.06,0,Math.PI*2);
-    cx.fillStyle='rgba(120,80,20,0.6)';cx.fill();
+    cx.fillStyle='#0c0a06';cx.fillRect(gX+gW*.27,gY+gH*.705,gW*.46,5);
+    cx.strokeStyle='rgba(65,50,20,.85)';cx.lineWidth=.7;cx.strokeRect(gX+gW*.27,gY+gH*.705,gW*.46,5);
 
     cx.fillStyle='#201c12';cx.fillRect(0,H*.17,gX-10,H*.45);cx.fillRect(gX+gW+10,H*.17,W-(gX+gW+10),H*.45);
     const shL=cx.createLinearGradient(0,0,gX-10,0);shL.addColorStop(0,'rgba(0,0,0,.65)');shL.addColorStop(1,'rgba(0,0,0,0)');
