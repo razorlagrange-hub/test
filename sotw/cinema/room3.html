@@ -7,69 +7,38 @@
 <link rel="stylesheet" href="../css/main.css">
 <style>
   body { background:#161a16; }
-
-  /* EXIT door button */
-  #exitBtn {
+  #doNotSit { position:fixed; z-index:15; cursor:pointer; pointer-events:all; }
+  #exitSign {
     position:fixed;
     z-index:15;
     cursor:pointer;
     pointer-events:all;
+    width:120px;
+    opacity:0.85;
+    transition:opacity 0.2s;
   }
-  #exitLabel {
-    position:fixed;
-    z-index:16;
-    font-family:'Courier New',monospace;
-    font-size:9px;
-    letter-spacing:0.2em;
-    color:rgba(180,160,100,0.55);
-    pointer-events:none;
-    text-align:center;
-    text-transform:uppercase;
-  }
-
-  /* DO NOT SIT tape */
-  #doNotSit {
-    position:fixed;
-    z-index:15;
-    cursor:pointer;
-    pointer-events:all;
-  }
+  #exitSign:hover { opacity:1; }
 </style>
 </head>
 <body>
   <div class="fade-cover" id="fi"></div>
   <canvas id="c"></canvas>
-  <div id="exitBtn"></div>
-  <div id="exitLabel">EXIT</div>
   <div id="doNotSit"></div>
+  <img id="exitSign" src="exit_sign.png" alt="EXIT">
 
 <script>
 (function(){
   const cv=document.getElementById('c'),cx=cv.getContext('2d');
   const fi=document.getElementById('fi');
-  const exitBtn=document.getElementById('exitBtn');
-  const exitLabel=document.getElementById('exitLabel');
   const doNotSit=document.getElementById('doNotSit');
+  const exitSign=document.getElementById('exitSign');
   let W,H,t=0;
-  let startTime=null;
-  let audioCtx=null,humGain=null;
+  let startTime=performance.now()/1000;
+  let audioCtx=null,humGain=null,chaosOscs=[];
 
   function resize(){
-    W=window.innerWidth;H=window.innerHeight;
-    cv.width=W;cv.height=H;
-
-    // EXIT door — right side of room
-    const exitW=W*0.07,exitH=H*0.22;
-    const exitX=W*0.82,exitY=H*0.38;
-    exitBtn.style.left=exitX+'px';
-    exitBtn.style.top=exitY+'px';
-    exitBtn.style.width=exitW+'px';
-    exitBtn.style.height=exitH+'px';
-    exitLabel.style.left=(exitX+exitW/2)+'px';
-    exitLabel.style.top=(exitY-18)+'px';
-    exitLabel.style.transform='translateX(-50%)';
-
-    // DO NOT SIT tape — center seat
+    W=window.innerWidth;H=window.innerHeight;cv.width=W;cv.height=H;
+    // DO NOT SIT
     const seatH=H*0.34,rowY=H*0.99,seatW=W*0.115;
     const centerX=W/7*3.5;
     const tapW=seatW*0.88,tapH=seatH*0.12;
@@ -77,12 +46,14 @@
     doNotSit.style.top=(rowY-seatH*0.85+seatH*0.3)+'px';
     doNotSit.style.width=tapW+'px';
     doNotSit.style.height=tapH+'px';
+    // EXIT sign — right side, middle height
+    exitSign.style.left=(W*0.78)+'px';
+    exitSign.style.top=(H*0.35)+'px';
   }
   resize();
   setTimeout(()=>fi.classList.add('done'),100);
 
-  // START AUDIO
-  function startHum(){
+  function startAudio(){
     if(audioCtx)return;
     audioCtx=new(window.AudioContext||window.webkitAudioContext)();
     const o1=audioCtx.createOscillator(),o2=audioCtx.createOscillator();
@@ -94,18 +65,34 @@
     o1.connect(humGain);o2.connect(g2);g2.connect(humGain);
     humGain.connect(audioCtx.destination);
     o1.start();o2.start();
-    startTime=performance.now()/1000;
   }
-  document.addEventListener('click',startHum,{once:true});
+  document.addEventListener('click',startAudio,{once:true});
+
+  function startChaosSound(intensity){
+    if(!audioCtx||chaosOscs.length>0)return;
+    const drone=audioCtx.createOscillator(),dg=audioCtx.createGain();
+    drone.type='sawtooth';drone.frequency.value=40;
+    dg.gain.setValueAtTime(0,audioCtx.currentTime);
+    dg.gain.linearRampToValueAtTime(0.4,audioCtx.currentTime+1);
+    drone.connect(dg);dg.connect(audioCtx.destination);drone.start();
+    chaosOscs.push(drone);
+
+    const screech=audioCtx.createOscillator(),sg=audioCtx.createGain();
+    screech.type='square';screech.frequency.value=2800;
+    sg.gain.setValueAtTime(0,audioCtx.currentTime);
+    sg.gain.linearRampToValueAtTime(0.12,audioCtx.currentTime+2);
+    screech.connect(sg);sg.connect(audioCtx.destination);screech.start();
+    chaosOscs.push(screech);
+  }
 
   // NAVIGATION
-  exitBtn.addEventListener('click',()=>{
-    // commercial break
+  exitSign.addEventListener('click',()=>{
+    chaosOscs.forEach(o=>{try{o.stop();}catch(e){}});
     fi.style.transition='opacity 0.5s';fi.style.opacity='1';
     setTimeout(()=>window.location.href='ad.html',500);
   });
-
   doNotSit.addEventListener('click',()=>{
+    chaosOscs.forEach(o=>{try{o.stop();}catch(e){}});
     fi.style.transition='opacity 0.5s';fi.style.opacity='1';
     setTimeout(()=>window.location.href='liminal.html',500);
   });
@@ -124,49 +111,42 @@
   function draw(){
     cx.clearRect(0,0,W,H);
     const cxW=W/2;
+    const now=performance.now()/1000-startTime;
+    // deg: starts at 0, hits 1 at 20s — ultra abusé
+    const deg=Math.min(1,now/20);
 
-    // degradation progress — 0 to 1 over 45 seconds (starts at 15s)
-    const now=startTime?performance.now()/1000-startTime:0;
-    const deg=startTime?Math.max(0,Math.min(1,(now-15)/30)):0;
+    // update audio
+    if(humGain) humGain.gain.value=0.04+deg*0.08;
+    if(deg>0.4&&chaosOscs.length===0) startChaosSound(deg);
 
-    // update hum pitch as it degrades
-    if(humGain&&deg>0){
-      humGain.gain.value=0.04+deg*0.06;
-    }
+    // BG
+    cx.fillStyle='#161a16';cx.fillRect(0,0,W,H);
 
-    // BASE BG — cold grey-green, shifts with degradation
-    const bgR=Math.floor(22+deg*20),bgG=Math.floor(26-deg*8),bgB=Math.floor(22-deg*8);
-    cx.fillStyle=`rgb(${bgR},${bgG},${bgB})`;cx.fillRect(0,0,W,H);
-
-    // SCREEN — off, tarp
+    // SCREEN
     const sw=W*0.88,sh=sw*0.52,sx=cxW-sw/2,sy=H*0.02;
     cx.fillStyle='#0e100e';cx.fillRect(sx-12,sy-8,sw+24,sh+16);
     cx.fillStyle='#080a08';cx.fillRect(sx,sy,sw,sh);
 
-    // tarp — starts shifting with deg
+    // tarp — distorts with deg
     cx.save();cx.globalAlpha=0.82;
     const tarpG=cx.createLinearGradient(sx,sy,sx,sy+sh*0.7);
     tarpG.addColorStop(0,'#1e221e');tarpG.addColorStop(0.5,'#181c18');tarpG.addColorStop(1,'#121612');
     cx.fillStyle=tarpG;
     cx.beginPath();
-    cx.moveTo(sx-5+deg*Math.sin(now*2)*4,sy-2);
-    cx.lineTo(sx+sw*0.62+deg*Math.sin(now*1.5)*3,sy-2);
-    cx.lineTo(sx+sw*0.65+deg*Math.cos(now)*5,sy+sh*0.72+deg*Math.sin(now*3)*4);
-    cx.lineTo(sx-5+deg*Math.sin(now*1.8)*3,sy+sh*0.75);
+    cx.moveTo(sx-5+deg*Math.sin(now*3)*8,sy-2);
+    cx.lineTo(sx+sw*0.62,sy-2);
+    cx.lineTo(sx+sw*0.65+deg*Math.cos(now*2)*6,sy+sh*0.72+deg*Math.sin(now*4)*5);
+    cx.lineTo(sx-5,sy+sh*0.75+deg*Math.sin(now*1.5)*4);
     cx.closePath();cx.fill();cx.restore();
 
-    // MAINTENANCE LIGHTS — flicker more with deg
+    // LAMPS
     const lamps=[{x:W*0.18,y:H*0.28},{x:W*0.82,y:H*0.3}];
     lamps.forEach((lamp,i)=>{
-      const baseFlicker=0.88+Math.sin(t*2.1+i*3.7)*0.06+Math.sin(t*17+i)*0.025;
-      // add aggressive flicker with degradation
-      const chaos=deg*Math.random()*0.6;
+      const baseFlicker=0.88+Math.sin(t*2.1+i*3.7)*0.06;
+      const chaos=deg*(Math.random()*0.8);
       const flicker=Math.max(0,baseFlicker-chaos);
-
       cx.strokeStyle='rgba(100,105,95,0.7)';cx.lineWidth=2;
-      cx.beginPath();
-      cx.moveTo(lamp.x+deg*Math.sin(now+i)*3,lamp.y+10);
-      cx.lineTo(lamp.x,H*0.62);cx.stroke();
+      cx.beginPath();cx.moveTo(lamp.x+deg*Math.sin(now*2+i)*5,lamp.y+10);cx.lineTo(lamp.x,H*0.62);cx.stroke();
       cx.fillStyle='rgba(80,85,75,0.8)';cx.fillRect(lamp.x-18,H*0.62,36,6);
       cx.save();cx.translate(lamp.x,lamp.y);
       cx.fillStyle='rgba(90,95,85,0.9)';cx.fillRect(-20,-8,40,16);
@@ -181,24 +161,24 @@
 
     // CABLES
     cx.beginPath();
-    cx.moveTo(W*0.15+deg*Math.sin(now*0.5)*8,H*0.64);
-    cx.bezierCurveTo(W*0.3,H*0.67+deg*5,W*0.45,H*0.61,W*0.6,H*0.65+deg*Math.sin(now)*4);
+    cx.moveTo(W*0.15+deg*Math.sin(now)*10,H*0.64);
+    cx.bezierCurveTo(W*0.3,H*0.67+deg*8,W*0.45,H*0.61,W*0.6,H*0.65+deg*Math.sin(now*1.3)*6);
     cx.bezierCurveTo(W*0.72,H*0.68,W*0.8,H*0.63,W*0.9,H*0.66);
     cx.strokeStyle='rgba(30,35,28,0.8)';cx.lineWidth=4;cx.stroke();
     cx.strokeStyle='rgba(50,55,45,0.5)';cx.lineWidth=2;cx.stroke();
 
-    // FLOOR — concrete, gets cracks with deg
+    // FLOOR
     const floorG=cx.createLinearGradient(0,H*0.62,0,H);
     floorG.addColorStop(0,'#1e201e');floorG.addColorStop(1,'#141614');
     cx.fillStyle=floorG;cx.fillRect(0,H*0.62,W,H*0.38);
     for(let x=0;x<W;x+=W/8){cx.beginPath();cx.moveTo(x,H*0.62);cx.lineTo(x,H);cx.strokeStyle='rgba(30,34,28,0.3)';cx.lineWidth=0.4;cx.stroke();}
 
     // CART
-    const cartX=W*0.08+deg*Math.sin(now*0.3)*5,cartY=H*0.5;
-    cx.fillStyle='rgba(60,65,55,0.85)';cx.fillRect(cartX,cartY,W*0.06,H*0.12);
-    cx.fillStyle='rgba(45,50,40,0.7)';cx.fillRect(cartX,cartY+H*0.04,W*0.06,H*0.01);cx.fillRect(cartX,cartY+H*0.08,W*0.06,H*0.01);
-    cx.beginPath();cx.ellipse(cartX+W*0.012,cartY+H*0.122,5,5,0,0,Math.PI*2);cx.fillStyle='rgba(40,42,38,0.9)';cx.fill();
-    cx.beginPath();cx.ellipse(cartX+W*0.048,cartY+H*0.122,5,5,0,0,Math.PI*2);cx.fill();
+    const cartX=W*0.08+deg*Math.sin(now*0.5)*8;
+    cx.fillStyle='rgba(60,65,55,0.85)';cx.fillRect(cartX,H*0.5,W*0.06,H*0.12);
+    cx.fillStyle='rgba(45,50,40,0.7)';cx.fillRect(cartX,H*0.54,W*0.06,H*0.01);cx.fillRect(cartX,H*0.58,W*0.06,H*0.01);
+    cx.beginPath();cx.ellipse(cartX+W*0.012,H*0.622,5,5,0,0,Math.PI*2);cx.fillStyle='rgba(40,42,38,0.9)';cx.fill();
+    cx.beginPath();cx.ellipse(cartX+W*0.048,H*0.622,5,5,0,0,Math.PI*2);cx.fill();
 
     // SEATS
     const rowY=H*0.99,seatW=W*0.115,seatH=H*0.34;
@@ -208,81 +188,75 @@
     const centerX=W/7*3.5;
     const tapW=seatW*0.88,tapH=seatH*0.12;
     const tapX=centerX-tapW/2,tapY=rowY-seatH*0.85+seatH*0.3;
-    cx.fillStyle=`rgba(200,180,20,${0.75-deg*0.2})`;cx.fillRect(tapX,tapY,tapW,tapH);
+    cx.fillStyle=`rgba(200,180,20,${0.75-deg*0.15})`;cx.fillRect(tapX,tapY,tapW,tapH);
     cx.fillStyle='rgba(10,10,10,0.85)';
     cx.font=`bold ${seatW*0.13}px 'Courier New'`;cx.textAlign='center';cx.textBaseline='middle';
     cx.fillText('DO NOT SIT',centerX,tapY+tapH*0.5);
 
-    // EXIT DOOR — right wall
-    const exitW=W*0.07,exitH=H*0.22;
-    const exitX=W*0.82,exitY=H*0.38;
-    cx.fillStyle='rgba(40,28,10,0.9)';cx.fillRect(exitX-3,exitY-3,exitW+6,exitH+6);
-    const dg=cx.createLinearGradient(exitX,exitY,exitX+exitW,exitY);
-    dg.addColorStop(0,'#1e0808');dg.addColorStop(.5,'#280a0a');dg.addColorStop(1,'#180606');
-    cx.fillStyle=dg;cx.fillRect(exitX,exitY,exitW,exitH);
-    cx.strokeStyle='rgba(60,20,10,0.5)';cx.lineWidth=0.8;
-    cx.strokeRect(exitX+exitW*.1,exitY+exitH*.08,exitW*.8,exitH*.38);
-    cx.strokeRect(exitX+exitW*.1,exitY+exitH*.52,exitW*.8,exitH*.38);
-    cx.beginPath();cx.arc(exitX+exitW*.72,exitY+exitH*.5,exitW*.06,0,Math.PI*2);
-    cx.fillStyle='rgba(120,80,20,0.6)';cx.fill();
-
     // CLOSED FOR MAINTENANCE sign
-    const signX=cxW,signY=H*0.15;
-    cx.fillStyle=`rgba(200,180,20,${0.8-deg*0.3})`;cx.fillRect(signX-W*0.18,signY-14,W*0.36,28);
+    cx.fillStyle=`rgba(200,180,20,${0.8-deg*0.4})`;cx.fillRect(cxW-W*0.18,H*0.15-14,W*0.36,28);
     cx.fillStyle='rgba(10,10,10,0.9)';
     cx.font=`bold ${W*0.018}px 'Courier New'`;cx.textAlign='center';cx.textBaseline='middle';
-    cx.fillText('CLOSED FOR MAINTENANCE',signX,signY);
+    cx.fillText('CLOSED FOR MAINTENANCE',cxW,H*0.15);
 
-    // DEGRADATION EFFECTS — appear progressively
+    // DEGRADATION EFFECTS
     if(deg>0){
-      // glitch tears
-      const numTears=Math.floor(deg*6);
+      // glitch tears — start immediately, get worse
+      const numTears=Math.floor(deg*15+1);
       for(let i=0;i<numTears;i++){
-        if(Math.random()<0.3+deg*0.4){
-          const ty=Math.random()*H,th=Math.random()*4+1;
-          const shift=(Math.random()-0.5)*W*0.12*deg;
+        if(Math.random()<0.2+deg*0.7){
+          const ty=Math.random()*H,th=Math.random()*(4+deg*12)+1;
+          const shift=(Math.random()-0.5)*W*0.3*deg;
           cx.save();cx.drawImage(cv,0,ty,W,th,shift,ty,W,th);cx.restore();
         }
       }
+      // noise
+      const noiseAmt=Math.floor(deg*150);
+      for(let i=0;i<noiseAmt;i++){
+        cx.fillStyle=`rgba(${Math.random()*80|0},${Math.random()*40|0},${Math.random()*15|0},${Math.random()*0.12})`;
+        cx.fillRect(Math.random()*W,Math.random()*H,Math.random()*5+0.5,Math.random()*3+0.5);
+      }
       // color aberration
-      if(deg>0.3&&Math.random()<deg*0.3){
-        cx.save();cx.globalCompositeOperation='screen';cx.globalAlpha=deg*0.06;
-        cx.fillStyle='rgba(255,0,0,1)';cx.fillRect(Math.random()*6-3,0,W,H);
+      if(deg>0.2&&Math.random()<deg*0.5){
+        cx.save();cx.globalCompositeOperation='screen';cx.globalAlpha=deg*0.08;
+        cx.fillStyle='rgba(255,0,0,1)';cx.fillRect(Math.random()*8-4,0,W,H);
         cx.restore();
       }
-      // noise patches
-      if(deg>0.2){
-        for(let i=0;i<Math.floor(deg*20);i++){
-          cx.fillStyle=`rgba(${Math.random()*80|0},${Math.random()*30|0},${Math.random()*10|0},${Math.random()*0.08})`;
-          cx.fillRect(Math.random()*W,Math.random()*H,Math.random()*4+1,Math.random()*2+0.5);
+      // random black flash
+      if(deg>0.5&&Math.random()<deg*0.12){
+        cx.fillStyle=`rgba(0,0,0,${0.4+Math.random()*0.5})`;cx.fillRect(0,0,W,H);
+      }
+      // white flash
+      if(deg>0.7&&Math.random()<deg*0.06){
+        cx.fillStyle=`rgba(255,255,255,${Math.random()*0.3})`;cx.fillRect(0,0,W,H);
+      }
+      // full screen random color blocks
+      if(deg>0.6){
+        for(let i=0;i<Math.floor(deg*8);i++){
+          cx.fillStyle=`rgba(${Math.random()*200|0},${Math.random()*50|0},${Math.random()*20|0},${0.1+Math.random()*0.3})`;
+          cx.fillRect(Math.random()*W,Math.random()*H,Math.random()*W*0.6,Math.random()*H*0.2);
         }
       }
-      // lights out flicker
-      if(deg>0.5&&Math.random()<deg*0.08){
-        cx.fillStyle=`rgba(0,0,0,${0.3+Math.random()*0.5})`;
-        cx.fillRect(0,0,W,H);
-      }
-      // text corruption on sign
-      if(deg>0.6&&Math.random()<0.05){
-        cx.fillStyle=`rgba(${80+Math.random()*120|0},${20+Math.random()*40|0},5,0.6)`;
-        cx.font=`bold ${W*0.018}px 'Courier New'`;cx.textAlign='center';
-        const glitchTexts=['CL0SED F0R M41NT3N4NC3','CLOSED FOR ████████','C̷L̷O̷S̷E̷D̷','ERROR'];
-        cx.fillText(glitchTexts[Math.floor(Math.random()*glitchTexts.length)],signX+Math.random()*10-5,signY+Math.random()*6-3);
+      // sign corruption
+      if(deg>0.5&&Math.random()<0.08){
+        cx.font=`bold ${W*0.018}px 'Courier New'`;cx.fillStyle=`rgba(255,${Math.random()*60|0},0,0.7)`;cx.textAlign='center';
+        const gt=['CL0SED F0R M41NT3N4NC3','CLOSED FOR ████████','ERROR','C̷L̷O̷S̷E̷D̷'];
+        cx.fillText(gt[Math.random()*gt.length|0],cxW+Math.random()*12-6,H*0.15+Math.random()*8-4);
       }
     }
 
-    // global fluorescent flicker
-    const gf=0.96+Math.sin(t*(19.3+deg*15))*0.025+Math.sin(t*7.1)*0.015;
-    cx.fillStyle=`rgba(200,220,190,${(1-gf)*0.08+deg*0.04})`;cx.fillRect(0,0,W,H);
+    // global flicker
+    const gf=0.96+Math.sin(t*(19.3+deg*30))*(0.025+deg*0.04);
+    cx.fillStyle=`rgba(200,220,190,${(1-gf)*0.1})`;cx.fillRect(0,0,W,H);
 
     // bottom fade
     const botG=cx.createLinearGradient(0,H*0.84,0,H);
     botG.addColorStop(0,'rgba(0,0,0,0)');botG.addColorStop(1,'rgba(0,0,0,0.97)');
     cx.fillStyle=botG;cx.fillRect(0,H*0.84,W,H*0.16);
 
-    // vignette — increases with deg
+    // vignette
     const vig=cx.createRadialGradient(cxW,H*0.4,H*0.08,cxW,H*0.5,H*0.85);
-    vig.addColorStop(0,'rgba(0,0,0,0)');vig.addColorStop(1,`rgba(0,0,0,${0.75+deg*0.15})`);
+    vig.addColorStop(0,'rgba(0,0,0,0)');vig.addColorStop(1,`rgba(0,0,0,${0.75+deg*0.2})`);
     cx.fillStyle=vig;cx.fillRect(0,0,W,H);
   }
 
