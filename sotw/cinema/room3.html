@@ -9,15 +9,22 @@
   body { background:#161a16; }
   #doNotSit { position:fixed; z-index:15; cursor:pointer; pointer-events:all; }
   #exitSign {
-    position:fixed;
-    z-index:15;
-    cursor:pointer;
-    pointer-events:all;
-    width:120px;
-    opacity:0.85;
+    position:fixed; z-index:15;
+    cursor:pointer; pointer-events:all;
+    width:120px; opacity:0.85;
     transition:opacity 0.2s;
   }
   #exitSign:hover { opacity:1; }
+  #clickPrompt {
+    position:fixed; top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    color:rgba(200,180,100,0.4);
+    font-family:'Courier New',monospace;
+    font-size:9px; letter-spacing:0.3em;
+    text-transform:uppercase; z-index:30;
+    pointer-events:none;
+    transition:opacity 0.5s;
+  }
 </style>
 </head>
 <body>
@@ -25,6 +32,7 @@
   <canvas id="c"></canvas>
   <div id="doNotSit"></div>
   <img id="exitSign" src="exit_sign.png" alt="EXIT">
+  <div id="clickPrompt">click anywhere</div>
 
 <script>
 (function(){
@@ -32,21 +40,20 @@
   const fi=document.getElementById('fi');
   const doNotSit=document.getElementById('doNotSit');
   const exitSign=document.getElementById('exitSign');
+  const clickPrompt=document.getElementById('clickPrompt');
   let W,H,t=0;
-  let startTime=performance.now()/1000;
+  let startTime=null; // starts on first click
   let audioCtx=null,humGain=null,chaosOscs=[];
+  let audioStarted=false;
 
   function resize(){
     W=window.innerWidth;H=window.innerHeight;cv.width=W;cv.height=H;
-    // DO NOT SIT
-    const seatH=H*0.34,rowY=H*0.99,seatW=W*0.115;
-    const centerX=W/7*3.5;
+    const seatH=H*0.34,seatW=W*0.115,centerX=W/7*3.5;
     const tapW=seatW*0.88,tapH=seatH*0.12;
     doNotSit.style.left=(centerX-tapW/2)+'px';
-    doNotSit.style.top=(rowY-seatH*0.85+seatH*0.3)+'px';
+    doNotSit.style.top=(H*0.99-seatH*0.85+seatH*0.3)+'px';
     doNotSit.style.width=tapW+'px';
     doNotSit.style.height=tapH+'px';
-    // EXIT sign — right side, middle height
     exitSign.style.left=(W*0.78)+'px';
     exitSign.style.top=(H*0.35)+'px';
   }
@@ -66,9 +73,8 @@
     humGain.connect(audioCtx.destination);
     o1.start();o2.start();
   }
-  document.addEventListener('click',startAudio,{once:true});
 
-  function startChaosSound(intensity){
+  function startChaos(){
     if(!audioCtx||chaosOscs.length>0)return;
     const drone=audioCtx.createOscillator(),dg=audioCtx.createGain();
     drone.type='sawtooth';drone.frequency.value=40;
@@ -76,7 +82,6 @@
     dg.gain.linearRampToValueAtTime(0.4,audioCtx.currentTime+1);
     drone.connect(dg);dg.connect(audioCtx.destination);drone.start();
     chaosOscs.push(drone);
-
     const screech=audioCtx.createOscillator(),sg=audioCtx.createGain();
     screech.type='square';screech.frequency.value=2800;
     sg.gain.setValueAtTime(0,audioCtx.currentTime);
@@ -85,16 +90,31 @@
     chaosOscs.push(screech);
   }
 
-  // NAVIGATION
-  exitSign.addEventListener('click',()=>{
-    chaosOscs.forEach(o=>{try{o.stop();}catch(e){}});
+  // first click anywhere — unlock audio and start timer
+  document.addEventListener('click',()=>{
+    if(!audioStarted){
+      audioStarted=true;
+      startTime=performance.now()/1000;
+      startAudio();
+      clickPrompt.style.opacity='0';
+      setTimeout(()=>clickPrompt.remove(),600);
+    }
+  });
+
+  function stopChaos(){chaosOscs.forEach(o=>{try{o.stop();}catch(e){}});}
+
+  exitSign.addEventListener('click',e=>{
+    e.stopPropagation();
+    stopChaos();
     fi.style.transition='opacity 0.5s';fi.style.opacity='1';
     setTimeout(()=>window.location.href='ad.html',500);
   });
-  doNotSit.addEventListener('click',()=>{
-    chaosOscs.forEach(o=>{try{o.stop();}catch(e){}});
+
+  doNotSit.addEventListener('click',e=>{
+    e.stopPropagation();
+    stopChaos();
     fi.style.transition='opacity 0.5s';fi.style.opacity='1';
-    setTimeout(()=>window.location.href='liminal.html',500);
+    setTimeout(()=>window.location.href='toldyou.html',500);
   });
 
   function drawSeat(x,y,sw,sh,lit){
@@ -111,23 +131,19 @@
   function draw(){
     cx.clearRect(0,0,W,H);
     const cxW=W/2;
-    const now=performance.now()/1000-startTime;
-    // deg: starts at 0, hits 1 at 20s — ultra abusé
+    const now=startTime?performance.now()/1000-startTime:0;
     const deg=Math.min(1,now/20);
 
-    // update audio
     if(humGain) humGain.gain.value=0.04+deg*0.08;
-    if(deg>0.4&&chaosOscs.length===0) startChaosSound(deg);
+    if(deg>0.4&&chaosOscs.length===0) startChaos();
 
-    // BG
     cx.fillStyle='#161a16';cx.fillRect(0,0,W,H);
 
-    // SCREEN
     const sw=W*0.88,sh=sw*0.52,sx=cxW-sw/2,sy=H*0.02;
     cx.fillStyle='#0e100e';cx.fillRect(sx-12,sy-8,sw+24,sh+16);
     cx.fillStyle='#080a08';cx.fillRect(sx,sy,sw,sh);
 
-    // tarp — distorts with deg
+    // tarp
     cx.save();cx.globalAlpha=0.82;
     const tarpG=cx.createLinearGradient(sx,sy,sx,sy+sh*0.7);
     tarpG.addColorStop(0,'#1e221e');tarpG.addColorStop(0.5,'#181c18');tarpG.addColorStop(1,'#121612');
@@ -184,60 +200,46 @@
     const rowY=H*0.99,seatW=W*0.115,seatH=H*0.34;
     for(let s=0;s<7;s++) drawSeat(W/7*.5+s*W/7,rowY,seatW,seatH,0.5);
 
-    // DO NOT SIT tape (canvas)
-    const centerX=W/7*3.5;
-    const tapW=seatW*0.88,tapH=seatH*0.12;
+    // DO NOT SIT
+    const centerX=W/7*3.5,tapW=seatW*0.88,tapH=seatH*0.12;
     const tapX=centerX-tapW/2,tapY=rowY-seatH*0.85+seatH*0.3;
     cx.fillStyle=`rgba(200,180,20,${0.75-deg*0.15})`;cx.fillRect(tapX,tapY,tapW,tapH);
     cx.fillStyle='rgba(10,10,10,0.85)';
     cx.font=`bold ${seatW*0.13}px 'Courier New'`;cx.textAlign='center';cx.textBaseline='middle';
     cx.fillText('DO NOT SIT',centerX,tapY+tapH*0.5);
 
-    // CLOSED FOR MAINTENANCE sign
+    // MAINTENANCE sign
     cx.fillStyle=`rgba(200,180,20,${0.8-deg*0.4})`;cx.fillRect(cxW-W*0.18,H*0.15-14,W*0.36,28);
     cx.fillStyle='rgba(10,10,10,0.9)';
     cx.font=`bold ${W*0.018}px 'Courier New'`;cx.textAlign='center';cx.textBaseline='middle';
     cx.fillText('CLOSED FOR MAINTENANCE',cxW,H*0.15);
 
-    // DEGRADATION EFFECTS
+    // DEGRADATION
     if(deg>0){
-      // glitch tears — start immediately, get worse
       const numTears=Math.floor(deg*15+1);
       for(let i=0;i<numTears;i++){
         if(Math.random()<0.2+deg*0.7){
-          const ty=Math.random()*H,th=Math.random()*(4+deg*12)+1;
-          const shift=(Math.random()-0.5)*W*0.3*deg;
+          const ty=Math.random()*H,th=Math.random()*(4+deg*12)+1,shift=(Math.random()-0.5)*W*0.3*deg;
           cx.save();cx.drawImage(cv,0,ty,W,th,shift,ty,W,th);cx.restore();
         }
       }
-      // noise
       const noiseAmt=Math.floor(deg*150);
       for(let i=0;i<noiseAmt;i++){
         cx.fillStyle=`rgba(${Math.random()*80|0},${Math.random()*40|0},${Math.random()*15|0},${Math.random()*0.12})`;
         cx.fillRect(Math.random()*W,Math.random()*H,Math.random()*5+0.5,Math.random()*3+0.5);
       }
-      // color aberration
       if(deg>0.2&&Math.random()<deg*0.5){
         cx.save();cx.globalCompositeOperation='screen';cx.globalAlpha=deg*0.08;
-        cx.fillStyle='rgba(255,0,0,1)';cx.fillRect(Math.random()*8-4,0,W,H);
-        cx.restore();
+        cx.fillStyle='rgba(255,0,0,1)';cx.fillRect(Math.random()*8-4,0,W,H);cx.restore();
       }
-      // random black flash
-      if(deg>0.5&&Math.random()<deg*0.12){
-        cx.fillStyle=`rgba(0,0,0,${0.4+Math.random()*0.5})`;cx.fillRect(0,0,W,H);
-      }
-      // white flash
-      if(deg>0.7&&Math.random()<deg*0.06){
-        cx.fillStyle=`rgba(255,255,255,${Math.random()*0.3})`;cx.fillRect(0,0,W,H);
-      }
-      // full screen random color blocks
+      if(deg>0.5&&Math.random()<deg*0.12){cx.fillStyle=`rgba(0,0,0,${0.4+Math.random()*0.5})`;cx.fillRect(0,0,W,H);}
+      if(deg>0.7&&Math.random()<deg*0.06){cx.fillStyle=`rgba(255,255,255,${Math.random()*0.3})`;cx.fillRect(0,0,W,H);}
       if(deg>0.6){
         for(let i=0;i<Math.floor(deg*8);i++){
           cx.fillStyle=`rgba(${Math.random()*200|0},${Math.random()*50|0},${Math.random()*20|0},${0.1+Math.random()*0.3})`;
           cx.fillRect(Math.random()*W,Math.random()*H,Math.random()*W*0.6,Math.random()*H*0.2);
         }
       }
-      // sign corruption
       if(deg>0.5&&Math.random()<0.08){
         cx.font=`bold ${W*0.018}px 'Courier New'`;cx.fillStyle=`rgba(255,${Math.random()*60|0},0,0.7)`;cx.textAlign='center';
         const gt=['CL0SED F0R M41NT3N4NC3','CLOSED FOR ████████','ERROR','C̷L̷O̷S̷E̷D̷'];
@@ -245,16 +247,13 @@
       }
     }
 
-    // global flicker
     const gf=0.96+Math.sin(t*(19.3+deg*30))*(0.025+deg*0.04);
     cx.fillStyle=`rgba(200,220,190,${(1-gf)*0.1})`;cx.fillRect(0,0,W,H);
 
-    // bottom fade
     const botG=cx.createLinearGradient(0,H*0.84,0,H);
     botG.addColorStop(0,'rgba(0,0,0,0)');botG.addColorStop(1,'rgba(0,0,0,0.97)');
     cx.fillStyle=botG;cx.fillRect(0,H*0.84,W,H*0.16);
 
-    // vignette
     const vig=cx.createRadialGradient(cxW,H*0.4,H*0.08,cxW,H*0.5,H*0.85);
     vig.addColorStop(0,'rgba(0,0,0,0)');vig.addColorStop(1,`rgba(0,0,0,${0.75+deg*0.2})`);
     cx.fillStyle=vig;cx.fillRect(0,0,W,H);
