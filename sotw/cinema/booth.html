@@ -19,20 +19,18 @@
   #tk-t { font-size:8px; letter-spacing:.3em; color:#999; text-transform:uppercase; margin-bottom:8px; }
   #tk-b { font-size:10px; color:#222; letter-spacing:.06em; line-height:1.75; white-space:pre; }
   #tk-h { font-size:7px; color:#bbb; letter-spacing:.2em; margin-top:9px; text-align:center; }
-
-  /* door */
   #doorWrap {
     position:fixed;
     bottom:0; left:50%;
     transform:translateX(-50%);
-    z-index:25;
-    opacity:0;
-    transition:opacity 0.5s ease;
+    z-index:25; opacity:0;
+    transition:opacity 0.6s ease;
     cursor:pointer;
-    width:180px;
+    width:200px;
+    pointer-events:none;
   }
-  #doorWrap.show { opacity:1; }
-  #doorWrap img { width:100%; display:block; transition:opacity 0.15s; }
+  #doorWrap.show { opacity:1; pointer-events:all; }
+  #doorImg { width:100%; height:auto; display:block; }
 </style>
 </head>
 <body>
@@ -47,7 +45,7 @@
     </div>
   </div>
   <div id="doorWrap">
-    <img id="doorImg" src="door_closed.png" alt="">
+    <img id="doorImg" src="door_closed.png">
   </div>
 
 <script>
@@ -60,7 +58,7 @@
   const tkb=document.getElementById('tk-b');
   const doorWrap=document.getElementById('doorWrap');
   const doorImg=document.getElementById('doorImg');
-  let W,H,t=0,ticketOut=false,audioCtx=null;
+  let W,H,t=0,ticketOut=false,audioCtx=null,doorOpen=false;
 
   function resize(){W=window.innerWidth;H=window.innerHeight;cv.width=W;cv.height=H;}
   resize();
@@ -96,49 +94,51 @@
     gain.gain.value=0.55;src.start();
   }
 
-  function playDoorCreak(){
+  function playCreak(){
     if(!audioCtx)return;
-    const dur=0.8,sr=audioCtx.sampleRate;
+    const dur=0.9,sr=audioCtx.sampleRate;
     const buf=audioCtx.createBuffer(1,sr*dur,sr);
     const d=buf.getChannelData(0);
     for(let i=0;i<d.length;i++){
-      const env=Math.min(i/200,1)*Math.max(0,1-(i-d.length*.6)/(d.length*.4));
-      d[i]=(Math.sin(i*0.03+Math.sin(i*0.007)*10)*0.4+(Math.random()-0.5)*0.15)*env*.5;
+      const env=Math.min(i/300,1)*Math.max(0,1-(i-d.length*.55)/(d.length*.45));
+      d[i]=(Math.sin(i*0.025+Math.sin(i*0.006)*12)*0.5+(Math.random()-0.5)*0.2)*env*.6;
     }
-    const src=audioCtx.createBufferSource(),gain=audioCtx.createGain();
-    const filt=audioCtx.createBiquadFilter();
-    filt.type='lowpass';filt.frequency.value=600;
-    gain.gain.value=0.7;
-    src.buffer=buf;src.connect(filt);filt.connect(gain);gain.connect(audioCtx.destination);
-    src.start();
+    const src=audioCtx.createBufferSource(),g=audioCtx.createGain(),f=audioCtx.createBiquadFilter();
+    f.type='lowpass';f.frequency.value=700;g.gain.value=0.8;
+    src.buffer=buf;src.connect(f);f.connect(g);g.connect(audioCtx.destination);src.start();
   }
 
+  // PRESS button → ticket
   btn.addEventListener('click',()=>{
     if(ticketOut)return;
-    initAudio();ticketOut=true;btn.disabled=true;
+    initAudio();
+    ticketOut=true;btn.disabled=true;
     tkb.textContent=randTicket();
     playPrinter();
     setTimeout(()=>tw.classList.add('out'),180);
   });
 
+  // TAKE ticket → door appears
   document.getElementById('tk').addEventListener('click',()=>{
-    initAudio();
     tw.classList.add('taken');
-    // door appears
     setTimeout(()=>{
       doorWrap.classList.add('show');
-    },400);
+    },500);
   });
 
-  // door click — animate open then navigate
+  // CLICK door → open animation → navigate
   doorWrap.addEventListener('click',()=>{
-    playDoorCreak();
+    if(doorOpen)return;
+    doorOpen=true;
+    initAudio();
+    playCreak();
     doorImg.src='door_open.png';
-    setTimeout(()=>{ doorImg.src='door_fully_open.png'; },300);
+    setTimeout(()=>{ doorImg.src='door_fully_open.png'; },320);
     setTimeout(()=>{
-      fi.style.transition='opacity 0.6s';fi.style.opacity='1';
-      setTimeout(()=>window.location.href='room3.html',600);
-    },700);
+      fi.style.transition='opacity 0.7s';
+      fi.style.opacity='1';
+      setTimeout(()=>window.location.href='room3.html',700);
+    },750);
   });
 
   function draw(){
@@ -146,18 +146,23 @@
     const cxW=W/2;
     cx.fillStyle='#18150f';cx.fillRect(0,0,W,H);
 
+    // CARPET
     const cg=cx.createLinearGradient(0,H*.62,0,H);
     cg.addColorStop(0,'#2a0e0e');cg.addColorStop(.5,'#200a0a');cg.addColorStop(1,'#180808');
     cx.fillStyle=cg;cx.fillRect(0,H*.62,W,H*.38);
     for(let i=0;i<=8;i++){cx.beginPath();cx.moveTo(cxW,H*.62);cx.lineTo(W*i/8,H);cx.strokeStyle='rgba(40,10,10,.55)';cx.lineWidth=.5;cx.stroke();}
     for(let j=1;j<5;j++){const p=j/5,y=H*.62+p*H*.38,sp=cxW*p;cx.beginPath();cx.moveTo(cxW-sp,y);cx.lineTo(cxW+sp,y);cx.strokeStyle=`rgba(32,8,8,${.3+p*.25})`;cx.lineWidth=.4;cx.stroke();}
 
+    // CEILING
     cx.fillStyle='#0e0c08';cx.fillRect(0,0,W,H*.17);
+
+    // BACK WALL
     cx.fillStyle='#2a2518';cx.fillRect(0,H*.17,W,H*.45);
     const wl=cx.createLinearGradient(0,H*.17,0,H*.62);
     wl.addColorStop(0,'rgba(200,175,105,.09)');wl.addColorStop(.4,'rgba(160,138,75,.04)');wl.addColorStop(1,'rgba(0,0,0,0)');
     cx.fillStyle=wl;cx.fillRect(0,H*.17,W,H*.45);
 
+    // BOOTH
     const gW=W*.36,gH=H*.32,gX=cxW-gW/2,gY=H*.26;
     const woodG=cx.createLinearGradient(gX-16,0,gX+gW+16,0);
     woodG.addColorStop(0,'#281e0e');woodG.addColorStop(.3,'#362a12');woodG.addColorStop(.65,'#2e2410');woodG.addColorStop(1,'#201808');
@@ -165,29 +170,35 @@
     cx.fillStyle='#3e3018';cx.fillRect(gX-16,gY+gH*.73,gW+32,3);
     cx.fillStyle='#120e06';cx.fillRect(gX-16,gY+gH*.73+H*.13,gW+32,5);
 
+    // GLASS
     cx.fillStyle='rgba(18,15,10,.75)';cx.fillRect(gX,gY,gW,gH*.73);
     cx.fillStyle='rgba(210,185,115,.045)';cx.fillRect(gX,gY,gW*.25,gH*.73);
     cx.strokeStyle='rgba(85,68,32,.72)';cx.lineWidth=1.5;cx.strokeRect(gX,gY,gW,gH*.73);
     cx.beginPath();cx.moveTo(gX,gY+gH*.38);cx.lineTo(gX+gW,gY+gH*.38);cx.strokeStyle='rgba(72,56,26,.5)';cx.lineWidth=.8;cx.stroke();
 
+    // CHAIR inside
     const cX=gX+gW*.44,cY=gY+gH*.08;
     cx.fillStyle='rgba(48,38,22,.7)';cx.fillRect(cX-20,cY+17,38,22);cx.fillRect(cX-18,cY,34,19);
     cx.fillStyle='rgba(32,25,14,.5)';cx.fillRect(cX-2,cY+39,4,16);
 
+    // CINEMA label
     cx.font="bold 11px 'Courier New'";cx.fillStyle='rgba(210,185,100,.75)';cx.textAlign='center';
     cx.fillText('CINEMA',gX+gW*.5,gY+gH*.11);
     cx.beginPath();cx.moveTo(gX+gW*.15,gY+gH*.145);cx.lineTo(gX+gW*.85,gY+gH*.145);
     cx.strokeStyle='rgba(180,155,70,.3)';cx.lineWidth=.6;cx.stroke();
 
+    // BOX OFFICE neon
     const nF=.78+Math.sin(t*2.1)*.1+Math.sin(t*9.3)*.055;
     cx.fillStyle=`rgba(190,28,28,${.07*nF})`;cx.fillRect(gX+gW*.08,gY+gH*.18,gW*.84,gH*.2);
     cx.fillStyle=`rgba(230,50,50,${.3*nF})`;cx.fillRect(gX+gW*.18,gY+gH*.18,gW*.64,2);
     cx.font="bold 8px 'Courier New'";cx.fillStyle=`rgba(240,60,60,${.65*nF})`;cx.textAlign='center';
     cx.fillText('BOX OFFICE',gX+gW*.5,gY+gH*.30);
 
+    // TICKET SLOT
     cx.fillStyle='#0c0a06';cx.fillRect(gX+gW*.27,gY+gH*.705,gW*.46,5);
     cx.strokeStyle='rgba(65,50,20,.85)';cx.lineWidth=.7;cx.strokeRect(gX+gW*.27,gY+gH*.705,gW*.46,5);
 
+    // SIDE WALLS
     cx.fillStyle='#201c12';cx.fillRect(0,H*.17,gX-10,H*.45);cx.fillRect(gX+gW+10,H*.17,W-(gX+gW+10),H*.45);
     const shL=cx.createLinearGradient(0,0,gX-10,0);shL.addColorStop(0,'rgba(0,0,0,.65)');shL.addColorStop(1,'rgba(0,0,0,0)');
     cx.fillStyle=shL;cx.fillRect(0,H*.17,gX-10,H*.45);
